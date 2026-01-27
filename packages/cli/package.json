@@ -1,0 +1,23 @@
+{
+  "name": "api-surface",
+  "version": "0.1.0",
+  "description": "CLI tool to scan repositories for frontend API calls",
+  "bin": {
+    "api-surface": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@api-surface/core": "*",
+    "@api-surface/types": "*",
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "license": "MIT"
+}

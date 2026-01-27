@@ -1,0 +1,19 @@
+{
+  "name": "api-surface",
+  "version": "0.1.0",
+  "description": "CLI tool to scan JavaScript/TypeScript repositories and detect frontend API calls",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "",
+  "license": "MIT"
+}
