@@ -60,7 +60,8 @@ export abstract class BaseDetector implements Detector {
     context: AstContext,
     confidence?: ApiCall['confidence']
   ): ApiCall {
-    const { line, column } = node.getStartLineAndColumn();
+    const sourceFile = node.getSourceFile();
+    const { line, column } = sourceFile.getLineAndColumnAtPos(node.getStart());
     
     return {
       method,
@@ -77,7 +78,8 @@ export abstract class BaseDetector implements Detector {
    * Get node position
    */
   protected getNodePosition(node: Node): { line: number; column: number } {
-    return node.getStartLineAndColumn();
+    const sourceFile = node.getSourceFile();
+    return sourceFile.getLineAndColumnAtPos(node.getStart());
   }
 
   /**

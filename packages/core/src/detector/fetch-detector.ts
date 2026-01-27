@@ -215,7 +215,8 @@ export class FetchDetector extends BaseDetector {
     detection: FetchDetectionResult,
     node: CallExpression
   ): void {
-    const { line, column } = node.getStartLineAndColumn();
+    const sourceFile = node.getSourceFile();
+    const { line, column } = sourceFile.getLineAndColumnAtPos(node.getStart());
     const fileName = context.filePath.split('/').pop() || context.filePath;
     
     console.log(

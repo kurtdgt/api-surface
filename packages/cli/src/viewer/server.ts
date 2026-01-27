@@ -6,7 +6,7 @@ import * as http from 'http';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as url from 'url';
-import { open } from 'open';
+import open from 'open';
 
 export interface ServerOptions {
   port?: number;

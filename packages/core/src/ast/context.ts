@@ -53,7 +53,7 @@ export class AstContext {
       }
 
       // Get position
-      const startLineAndColumn = importDecl.getStartLineAndColumn();
+      const { line, column } = this.sourceFile.getLineAndColumnAtPos(importDecl.getStart());
 
       imports.push({
         moduleSpecifier,
@@ -61,8 +61,8 @@ export class AstContext {
         namedImports,
         namespaceImport,
         isTypeOnly,
-        line: startLineAndColumn.line,
-        column: startLineAndColumn.column,
+        line,
+        column,
       });
     }
 
@@ -96,9 +96,29 @@ export class AstContext {
    */
   resolveImportPath(moduleSpecifier: string): string | null {
     try {
-      // Try to resolve using ts-morph's resolution
-      const resolved = this.project.resolveModuleName(moduleSpecifier, this.filePath);
-      return resolved?.getResolvedModule()?.getResolvedFileName() || null;
+      // Try to resolve using TypeScript's compiler API
+      const ts = require('typescript');
+      const compilerOptions = this.project.getCompilerOptions();
+      const moduleResolutionHost = {
+        fileExists: (fileName: string) => {
+          const sourceFile = this.project.getSourceFile(fileName);
+          return sourceFile !== undefined;
+        },
+        readFile: (fileName: string) => {
+          const sourceFile = this.project.getSourceFile(fileName);
+          return sourceFile?.getFullText() || undefined;
+        },
+        getCurrentDirectory: () => this.getDirectoryPath(),
+      };
+
+      const resolved = ts.resolveModuleName(
+        moduleSpecifier,
+        this.filePath,
+        compilerOptions,
+        moduleResolutionHost
+      );
+
+      return resolved.resolvedModule?.resolvedFileName || null;
     } catch {
       return null;
     }

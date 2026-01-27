@@ -143,6 +143,9 @@ export class AstParser {
    * Clear all source files from the project
    */
   clear(): void {
-    this.project.removeSourceFiles(this.project.getSourceFiles());
+    const sourceFiles = this.project.getSourceFiles();
+    for (const sourceFile of sourceFiles) {
+      this.project.removeSourceFile(sourceFile);
+    }
   }
 }

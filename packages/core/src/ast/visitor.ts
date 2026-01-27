@@ -49,8 +49,8 @@ export abstract class BaseAstVisitor implements AstVisitor {
    * Get node position information
    */
   protected getNodePosition(node: Node): { line: number; column: number } {
-    const { line, column } = node.getStartLineAndColumn();
-    return { line, column };
+    const sourceFile = node.getSourceFile();
+    return sourceFile.getLineAndColumnAtPos(node.getStart());
   }
 
   /**
