@@ -1,7 +1,6 @@
 /**
  * Core scanning logic
+ * @deprecated Use scanner/file-scanner instead
  */
 
-// TODO: Implement file discovery
-// TODO: Implement AST parsing
-// TODO: Implement API call detection (fetch, axios, custom clients)
+export * from './scanner';

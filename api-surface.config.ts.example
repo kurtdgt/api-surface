@@ -1,0 +1,51 @@
+/**
+ * Example api-surface configuration file
+ * 
+ * Copy this file to api-surface.config.ts and customize as needed.
+ * The config file supports both TypeScript (.ts) and JSON (.json) formats.
+ */
+
+import type { ConfigInput } from '@api-surface/core';
+
+const config: ConfigInput = {
+  // Include patterns (glob)
+  include: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    'app/**/*.{js,jsx,ts,tsx}',
+  ],
+
+  // Exclude patterns (glob)
+  exclude: [
+    '**/node_modules/**',
+    '**/dist/**',
+    '**/build/**',
+    '**/.next/**',
+    '**/*.test.{js,jsx,ts,tsx}',
+    '**/*.spec.{js,jsx,ts,tsx}',
+  ],
+
+  // Framework hint (helps with framework-specific detection)
+  framework: 'next', // Options: 'none', 'nextjs', 'next', 'react', 'generic'
+
+  // API clients to detect
+  apiClients: [
+    // Built-in fetch API
+    { type: 'fetch' },
+    
+    // Axios library
+    { type: 'axios' },
+    
+    // Custom API client
+    {
+      type: 'custom',
+      name: 'apiClient',
+      patterns: [
+        '@/lib/api',
+        '@/utils/api-client',
+        '~/api',
+      ],
+    },
+  ],
+};
+
+export default config;

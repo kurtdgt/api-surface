@@ -43,12 +43,11 @@ program
 // Open command
 program
   .command('open')
-  .description('View or explore a scan result')
-  .argument('<scan-file>', 'Path to scan result JSON file')
-  .option('--format <type>', 'Output format (json, table, summary)', 'json')
-  .option('--filter <pattern>', 'Filter results by pattern')
-  .action(async (scanFile: string, options: OpenOptions) => {
-    await handleOpen(scanFile, options);
+  .description('View scan results in web viewer')
+  .argument('[scan-file]', 'Path to scan result JSON file (optional, uses latest if not specified)')
+  .option('-p, --port <number>', 'Port for web server', (val) => parseInt(val, 10), 3000)
+  .action(async (scanFile: string | undefined, options: OpenOptions) => {
+    await handleOpen(scanFile || '', options);
   });
 
 // Parse arguments

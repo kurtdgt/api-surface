@@ -1,15 +1,8 @@
 /**
- * Configuration handling
+ * Configuration handling (legacy export - use config/loader instead)
+ * @deprecated Use loadConfig from './config/loader' instead
  */
 
-import { ScanConfig } from '@api-surface/types';
-
-export function loadConfig(configPath?: string): ScanConfig {
-  // TODO: Load config from file or use defaults
-  throw new Error('Not implemented');
-}
-
-export function validateConfig(config: ScanConfig): void {
-  // TODO: Validate configuration
-  throw new Error('Not implemented');
-}
+export { loadConfig } from './config/loader';
+export { validateConfig } from './config/validator';
+export * from './config';
