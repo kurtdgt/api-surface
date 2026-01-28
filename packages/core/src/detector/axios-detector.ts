@@ -13,12 +13,12 @@ import {
   ObjectLiteralExpression,
   PropertyAssignment,
   PropertyAccessExpression,
-} from 'ts-morph';
-import { BaseDetector } from './detector';
-import { AstContext } from '../ast/context';
-import { ScanConfig, ApiCall } from '@api-surface/types';
+} from "ts-morph";
+import { BaseDetector } from "./detector";
+import { AstContext } from "../ast/context";
+import { ScanConfig, ApiCall } from "@api-surface/types";
 
-type Confidence = 'high' | 'medium' | 'low';
+type Confidence = "high" | "medium" | "low";
 
 export interface AxiosDetectionResult {
   method: string;
@@ -29,21 +29,34 @@ export interface AxiosDetectionResult {
 /**
  * HTTP methods supported by axios
  */
-const AXIOS_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'request'];
+const AXIOS_METHODS = [
+  "get",
+  "post",
+  "put",
+  "patch",
+  "delete",
+  "head",
+  "options",
+  "request",
+];
 
 /**
  * Detector for axios API calls
  */
 export class AxiosDetector extends BaseDetector {
-  readonly id = 'axios';
-  readonly name = 'Axios API Detector';
+  readonly id = "axios";
+  readonly name = "Axios API Detector";
 
   // Cache for axios import info per file
-  private axiosImportCache = new Map<string, {
-    hasDefaultImport: boolean;
-    hasNamedImports: Set<string>;
-    defaultImportName?: string;
-  }>();
+  private axiosImportCache = new Map<
+    string,
+    {
+      hasDefaultImport: boolean;
+      hasNamedImports: Set<string>;
+      defaultImportName?: string;
+      customApiImports: Map<string, string>; // Map of import name -> module specifier
+    }
+  >();
 
   /**
    * Only detect on CallExpression nodes
@@ -63,12 +76,13 @@ export class AxiosDetector extends BaseDetector {
     const callExpr = node as CallExpression;
 
     // Check if axios is imported in this file
-    if (!this.isAxiosImported(context)) {
+    const isImported = this.isAxiosImported(context, config);
+    if (!isImported) {
       return null;
     }
 
     // Check if this is an axios call
-    const axiosInfo = this.getAxiosCallInfo(callExpr, context);
+    const axiosInfo = this.getAxiosCallInfo(callExpr, context, config);
     if (!axiosInfo) {
       return null;
     }
@@ -87,23 +101,27 @@ export class AxiosDetector extends BaseDetector {
     return this.createApiCall(
       detection.method,
       detection.url,
-      'axios',
+      "axios",
       callExpr,
       context,
-      detection.confidence
+      detection.confidence,
     );
   }
 
   /**
    * Check if axios is imported in the file
    */
-  private isAxiosImported(context: AstContext): boolean {
+  private isAxiosImported(context: AstContext, config?: ScanConfig): boolean {
     const cacheKey = context.filePath;
-    
+
     // Check cache first
     if (this.axiosImportCache.has(cacheKey)) {
       const cached = this.axiosImportCache.get(cacheKey)!;
-      return cached.hasDefaultImport || cached.hasNamedImports.size > 0;
+      return (
+        cached.hasDefaultImport ||
+        cached.hasNamedImports.size > 0 ||
+        cached.customApiImports.size > 0
+      );
     }
 
     // Analyze imports
@@ -112,11 +130,27 @@ export class AxiosDetector extends BaseDetector {
       hasDefaultImport: false,
       hasNamedImports: new Set<string>(),
       defaultImportName: undefined as string | undefined,
+      customApiImports: new Map<string, string>(),
     };
 
+    // Get custom patterns from config
+    const customPatterns: string[] = [];
+    if (config?.apiClients) {
+      for (const client of config.apiClients) {
+        if (client.type === "axios" && client.patterns) {
+          customPatterns.push(...client.patterns);
+        }
+        if (client.type === "custom" && client.patterns) {
+          customPatterns.push(...client.patterns);
+        }
+      }
+    }
+
     for (const imp of imports) {
-      // Check if axios module is imported
-      if (imp.moduleSpecifier === 'axios' || imp.moduleSpecifier.endsWith('/axios')) {
+      const moduleSpec = imp.moduleSpecifier;
+
+      // Check if axios module is imported (standard axios)
+      if (moduleSpec === "axios" || moduleSpec.endsWith("/axios")) {
         // Default import: import axios from 'axios'
         if (imp.defaultImport) {
           axiosImports.hasDefaultImport = true;
@@ -130,12 +164,33 @@ export class AxiosDetector extends BaseDetector {
           }
         }
       }
+
+      // Check if module matches custom patterns (e.g., '@/config/axios')
+      for (const pattern of customPatterns) {
+        if (
+          moduleSpec === pattern ||
+          moduleSpec.endsWith(pattern) ||
+          moduleSpec.includes(pattern)
+        ) {
+          // Check for named import 'api' or default import
+          if (imp.namedImports.includes("api")) {
+            axiosImports.customApiImports.set("api", moduleSpec);
+          }
+          if (imp.defaultImport) {
+            axiosImports.customApiImports.set(imp.defaultImport, moduleSpec);
+          }
+        }
+      }
     }
 
     // Cache the result
     this.axiosImportCache.set(cacheKey, axiosImports);
 
-    return axiosImports.hasDefaultImport || axiosImports.hasNamedImports.size > 0;
+    return (
+      axiosImports.hasDefaultImport ||
+      axiosImports.hasNamedImports.size > 0 ||
+      axiosImports.customApiImports.size > 0
+    );
   }
 
   /**
@@ -144,30 +199,46 @@ export class AxiosDetector extends BaseDetector {
    */
   private getAxiosCallInfo(
     callExpr: CallExpression,
-    context: AstContext
-  ): { method: string; callType: 'method' | 'request' } | null {
+    context: AstContext,
+    config?: ScanConfig,
+  ): { method: string; callType: "method" | "request" } | null {
     const expression = callExpr.getExpression();
     const cacheKey = context.filePath;
     const axiosImports = this.axiosImportCache.get(cacheKey)!;
 
-    // Case 1: axios.get(), axios.post(), etc. (property access)
+    // Case 1: axios.get(), api.get(), etc. (property access)
     if (expression.getKind() === SyntaxKind.PropertyAccessExpression) {
       const propAccess = expression as PropertyAccessExpression;
       const methodName = propAccess.getName().toLowerCase();
       const objectExpr = propAccess.getExpression();
 
-      // Check if it's axios.methodName()
+      // Check if it's axios.methodName() or api.methodName()
       if (objectExpr.getKind() === SyntaxKind.Identifier) {
         const identifier = objectExpr as Identifier;
         const objectName = identifier.getText();
 
-        // Check if object name matches default import
-        if (axiosImports.hasDefaultImport && 
-            (objectName === axiosImports.defaultImportName || objectName === 'axios')) {
+        // Check if object name matches default axios import
+        if (
+          axiosImports.hasDefaultImport &&
+          (objectName === axiosImports.defaultImportName ||
+            objectName === "axios")
+        ) {
           if (AXIOS_METHODS.includes(methodName)) {
             return {
-              method: methodName === 'request' ? 'request' : methodName.toUpperCase(),
-              callType: methodName === 'request' ? 'request' : 'method',
+              method:
+                methodName === "request" ? "request" : methodName.toUpperCase(),
+              callType: methodName === "request" ? "request" : "method",
+            };
+          }
+        }
+
+        // Check if object name matches custom API import (e.g., 'api' from '@/config/axios')
+        if (axiosImports.customApiImports.has(objectName)) {
+          if (AXIOS_METHODS.includes(methodName)) {
+            return {
+              method:
+                methodName === "request" ? "request" : methodName.toUpperCase(),
+              callType: methodName === "request" ? "request" : "method",
             };
           }
         }
@@ -179,11 +250,14 @@ export class AxiosDetector extends BaseDetector {
       const identifier = expression as Identifier;
       const methodName = identifier.getText().toLowerCase();
 
-      if (axiosImports.hasNamedImports.has(identifier.getText()) &&
-          AXIOS_METHODS.includes(methodName)) {
+      if (
+        axiosImports.hasNamedImports.has(identifier.getText()) &&
+        AXIOS_METHODS.includes(methodName)
+      ) {
         return {
-          method: methodName === 'request' ? 'request' : methodName.toUpperCase(),
-          callType: methodName === 'request' ? 'request' : 'method',
+          method:
+            methodName === "request" ? "request" : methodName.toUpperCase(),
+          callType: methodName === "request" ? "request" : "method",
         };
       }
     }
@@ -196,12 +270,12 @@ export class AxiosDetector extends BaseDetector {
    */
   private extractAxiosDetails(
     callExpr: CallExpression,
-    axiosInfo: { method: string; callType: 'method' | 'request' },
-    context: AstContext
+    axiosInfo: { method: string; callType: "method" | "request" },
+    context: AstContext,
   ): AxiosDetectionResult | null {
     const arguments_ = callExpr.getArguments();
 
-    if (axiosInfo.callType === 'request') {
+    if (axiosInfo.callType === "request") {
       // axios.request({ url, method }) or request({ url, method })
       return this.extractFromRequestCall(arguments_, context);
     } else {
@@ -216,7 +290,7 @@ export class AxiosDetector extends BaseDetector {
   private extractFromMethodCall(
     arguments_: Node[],
     method: string,
-    context: AstContext
+    context: AstContext,
   ): AxiosDetectionResult | null {
     if (arguments_.length === 0) {
       return null;
@@ -242,7 +316,7 @@ export class AxiosDetector extends BaseDetector {
    */
   private extractFromRequestCall(
     arguments_: Node[],
-    context: AstContext
+    context: AstContext,
   ): AxiosDetectionResult | null {
     if (arguments_.length === 0) {
       return null;
@@ -259,8 +333,8 @@ export class AxiosDetector extends BaseDetector {
     const properties = objectLiteral.getProperties();
 
     let url: string | null = null;
-    let urlConfidence: Confidence = 'low';
-    let method = 'GET'; // Default method
+    let urlConfidence: Confidence = "low";
+    let method = "GET"; // Default method
 
     for (const property of properties) {
       if (property.getKind() === SyntaxKind.PropertyAssignment) {
@@ -272,15 +346,17 @@ export class AxiosDetector extends BaseDetector {
           continue;
         }
 
-        if (name === 'url') {
+        if (name === "url") {
           const urlResult = this.extractUrl(initializer, context);
           if (urlResult) {
             url = urlResult.url;
             urlConfidence = urlResult.confidence;
           }
-        } else if (name === 'method') {
+        } else if (name === "method") {
           if (initializer.getKind() === SyntaxKind.StringLiteral) {
-            method = (initializer as StringLiteral).getLiteralValue().toUpperCase();
+            method = (initializer as StringLiteral)
+              .getLiteralValue()
+              .toUpperCase();
           } else {
             method = initializer.getText().toUpperCase();
           }
@@ -304,7 +380,7 @@ export class AxiosDetector extends BaseDetector {
    */
   private extractUrl(
     node: Node,
-    context: AstContext
+    context: AstContext,
   ): { url: string; confidence: Confidence } | null {
     const kind = node.getKind();
 
@@ -312,33 +388,37 @@ export class AxiosDetector extends BaseDetector {
     if (kind === SyntaxKind.StringLiteral) {
       const stringLiteral = node as StringLiteral;
       const url = stringLiteral.getLiteralValue();
-      return { url, confidence: 'high' };
+      return { url, confidence: "high" };
     }
 
     // Template literal handling
     if (kind === SyntaxKind.TemplateExpression) {
       // Has interpolations - medium confidence
       const template = node as TemplateExpression;
-      const url = template.getText().replace(/^`|`$/g, '');
-      return { url, confidence: 'medium' };
+      const url = template.getText().replace(/^`|`$/g, "");
+      return { url, confidence: "medium" };
     }
 
     if (kind === SyntaxKind.NoSubstitutionTemplateLiteral) {
       // No interpolations - high confidence (static template string)
       const template = node as any;
-      const url = template.getLiteralValue() || template.getText().replace(/^`|`$/g, '');
-      return { url, confidence: 'high' };
+      const url =
+        template.getLiteralValue() || template.getText().replace(/^`|`$/g, "");
+      return { url, confidence: "high" };
     }
 
     // Low confidence: Identifier or other expressions
-    if (kind === SyntaxKind.Identifier || kind === SyntaxKind.PropertyAccessExpression) {
+    if (
+      kind === SyntaxKind.Identifier ||
+      kind === SyntaxKind.PropertyAccessExpression
+    ) {
       const text = node.getText();
-      return { url: text, confidence: 'low' };
+      return { url: text, confidence: "low" };
     }
 
     // Low confidence: Any other expression (computed, function call, etc.)
     const text = node.getText();
-    return { url: text, confidence: 'low' };
+    return { url: text, confidence: "low" };
   }
 
   /**
@@ -347,16 +427,16 @@ export class AxiosDetector extends BaseDetector {
   private logDetection(
     context: AstContext,
     detection: AxiosDetectionResult,
-    node: CallExpression
+    node: CallExpression,
   ): void {
     const sourceFile = node.getSourceFile();
     const { line, column } = sourceFile.getLineAndColumnAtPos(node.getStart());
-    const fileName = context.filePath.split('/').pop() || context.filePath;
+    const fileName = context.filePath.split("/").pop() || context.filePath;
 
     console.log(
       `[${this.name}] ${detection.method} ${detection.url} ` +
-      `(${detection.confidence} confidence) ` +
-      `at ${fileName}:${line}:${column}`
+        `(${detection.confidence} confidence) ` +
+        `at ${fileName}:${line}:${column}`,
     );
   }
 

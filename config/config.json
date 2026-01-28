@@ -1,0 +1,6 @@
+{
+  "include": ["src/**/*.{js,jsx,ts,tsx}"],
+  "exclude": ["**/node_modules/**", "**/dist/**"],
+  "framework": "generic",
+  "apiClients": [{ "type": "axios" }, { "type": "fetch" }]
+}

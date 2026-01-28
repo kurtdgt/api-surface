@@ -1,0 +1,311 @@
+{
+  "summary": {
+    "totalCalls": 21,
+    "uniqueEndpoints": 18,
+    "filesScanned": 64,
+    "errors": 0,
+    "byMethod": {
+      "DELETE": 2,
+      "GET": 9,
+      "PATCH": 2,
+      "POST": 5
+    },
+    "bySource": {
+      "fetch": 18
+    },
+    "byConfidence": {
+      "medium": 9,
+      "high": 9
+    }
+  },
+  "endpoints": [
+    {
+      "method": "DELETE",
+      "url": "/api/admin/accounts/${accountId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/page.tsx",
+          "line": 165,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/conversations/${deletingConversationId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/page.tsx",
+          "line": 146,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/admin/accounts",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/page.tsx",
+          "line": 93,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/admin/accounts/${accountId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/[id]/page.tsx",
+          "line": 59,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/barangays",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/page.tsx",
+          "line": 80,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/consultants",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/page.tsx",
+          "line": 63,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/consultants/${id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 119,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/conversations",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/page.tsx",
+          "line": 73,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/conversations/${conversationId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/[id]/page.tsx",
+          "line": 129,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/messages?conversationId=${conversationId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 171,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/sk-accounts/${userId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 102,
+          "column": 30,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/page.tsx",
+          "line": 46,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/admin/accounts/${editingAccountId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/page.tsx",
+          "line": 229,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/messages/${message.id}/read",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/[id]/page.tsx",
+          "line": 104,
+          "column": 11,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/admin/accounts/create",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/accounts/page.tsx",
+          "line": 306,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/attachments/upload",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/[id]/page.tsx",
+          "line": 240,
+          "column": 38,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 213,
+          "column": 38,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 2
+    },
+    {
+      "method": "POST",
+      "url": "/api/auth/login",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/page.tsx",
+          "line": 42,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/conversations",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 141,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/messages",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/admin/consultations/[id]/page.tsx",
+          "line": 257,
+          "column": 30,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/consultation-system/app/sk/consult/page.tsx",
+          "line": 230,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 2
+    }
+  ]
+}

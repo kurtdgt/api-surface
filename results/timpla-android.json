@@ -1,0 +1,12 @@
+{
+  "summary": {
+    "totalCalls": 0,
+    "uniqueEndpoints": 0,
+    "filesScanned": 53,
+    "errors": 0,
+    "byMethod": {},
+    "bySource": {},
+    "byConfidence": {}
+  },
+  "endpoints": []
+}

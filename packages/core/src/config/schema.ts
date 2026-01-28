@@ -24,4 +24,5 @@ export const ScanConfigSchema = ConfigFileSchema.extend({
 });
 
 export type ConfigInput = z.infer<typeof ScanConfigSchema>;
+export type ConfigFileInput = z.infer<typeof ConfigFileSchema>;
 export type ApiClientConfigInput = z.infer<typeof ApiClientConfigSchema>;

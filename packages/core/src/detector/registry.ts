@@ -2,8 +2,8 @@
  * Detector Registry - manages and coordinates detectors
  */
 
-import { Detector } from './detector';
-import { ScanConfig } from '@api-surface/types';
+import { Detector } from "./detector";
+import { ScanConfig } from "@api-surface/types";
 
 /**
  * Detector registry - manages all registered detectors
@@ -17,9 +17,11 @@ export class DetectorRegistry {
    */
   register(detector: Detector): void {
     if (this.detectors.has(detector.id)) {
-      console.warn(`Detector with id "${detector.id}" is already registered. Overwriting.`);
+      console.warn(
+        `Detector with id "${detector.id}" is already registered. Overwriting.`,
+      );
     }
-    
+
     this.detectors.set(detector.id, detector);
     this.enabledDetectors.add(detector.id);
   }
@@ -52,7 +54,7 @@ export class DetectorRegistry {
    */
   getEnabled(): Detector[] {
     return Array.from(this.enabledDetectors)
-      .map(id => this.detectors.get(id))
+      .map((id) => this.detectors.get(id))
       .filter((detector): detector is Detector => detector !== undefined);
   }
 
@@ -102,23 +104,20 @@ export class DetectorRegistry {
    */
   filterByConfig(config: ScanConfig): Detector[] {
     const enabled = this.getEnabled();
-    
+
     // If config specifies API clients, filter detectors that match
-    // Note: This filtering will be implemented by concrete detectors
-    // based on their source type (fetch, axios, custom)
-    const apiClients = (config as any).apiClients;
+    const apiClients = config.apiClients;
     if (apiClients && Array.isArray(apiClients) && apiClients.length > 0) {
-      const allowedSources = new Set(
-        apiClients.map((client: any) => client.type)
-      );
-      
-      return enabled.filter(detector => {
-        // This will be implemented by concrete detectors
-        // For now, return all enabled detectors
-        return true;
+      const allowedSources = new Set(apiClients.map((client) => client.type));
+
+      return enabled.filter((detector) => {
+        // Match detector ID to config type (e.g., 'axios' detector for 'axios' type)
+        // Built-in detectors: 'fetch' and 'axios' match their types
+        return allowedSources.has(detector.id as "fetch" | "axios" | "custom");
       });
     }
 
+    // If no apiClients specified, return all enabled detectors (backward compatibility)
     return enabled;
   }
 }

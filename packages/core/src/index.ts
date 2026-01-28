@@ -114,6 +114,7 @@ export class ApiScanner {
 export * from '@api-surface/types';
 export { loadConfig } from './config/loader';
 export * from './config';
+export type { ConfigFileInput, ConfigInput, ApiClientConfigInput } from './config/schema';
 export * from './scanner';
 export * from './ast';
 export * from './detector';

@@ -2,11 +2,11 @@
  * Configuration loader - supports both JSON and TypeScript config files
  */
 
-import * as fs from 'fs/promises';
-import * as path from 'path';
-import { ScanConfig } from '@api-surface/types';
-import { DEFAULT_CONFIG } from './defaults';
-import { ConfigFileSchema } from './schema';
+import * as fs from "fs/promises";
+import * as path from "path";
+import { ScanConfig } from "@api-surface/types";
+import { DEFAULT_CONFIG } from "./defaults";
+import { ConfigFileSchema } from "./schema";
 
 export interface LoadConfigOptions {
   rootDir: string;
@@ -16,7 +16,9 @@ export interface LoadConfigOptions {
 /**
  * Load configuration from file or use defaults
  */
-export async function loadConfig(options: LoadConfigOptions): Promise<ScanConfig> {
+export async function loadConfig(
+  options: LoadConfigOptions,
+): Promise<ScanConfig> {
   const { rootDir, configPath } = options;
 
   // If no config path provided, try to find default config file
@@ -41,10 +43,10 @@ export async function loadConfig(options: LoadConfigOptions): Promise<ScanConfig
  */
 async function findDefaultConfig(rootDir: string): Promise<string | null> {
   const configNames = [
-    'api-surface.config.ts',
-    'api-surface.config.js',
-    'api-surface.config.json',
-    '.api-surface.json',
+    "api-surface.config.ts",
+    "api-surface.config.js",
+    "api-surface.config.json",
+    ".api-surface.json",
   ];
 
   for (const name of configNames) {
@@ -63,16 +65,19 @@ async function findDefaultConfig(rootDir: string): Promise<string | null> {
 /**
  * Load configuration from a specific file
  */
-async function loadConfigFromFile(configPath: string, rootDir: string): Promise<ScanConfig> {
+async function loadConfigFromFile(
+  configPath: string,
+  rootDir: string,
+): Promise<ScanConfig> {
   try {
     const ext = path.extname(configPath).toLowerCase();
     let rawConfig: unknown;
 
-    if (ext === '.json') {
+    if (ext === ".json") {
       // Load JSON config
-      const content = await fs.readFile(configPath, 'utf-8');
+      const content = await fs.readFile(configPath, "utf-8");
       rawConfig = JSON.parse(content);
-    } else if (ext === '.ts' || ext === '.js') {
+    } else if (ext === ".ts" || ext === ".js") {
       // Load TypeScript/JavaScript config
       rawConfig = await loadTypeScriptConfig(configPath);
     } else {
@@ -84,7 +89,9 @@ async function loadConfigFromFile(configPath: string, rootDir: string): Promise<
     return validated;
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to load config from ${configPath}: ${error.message}`);
+      throw new Error(
+        `Failed to load config from ${configPath}: ${error.message}`,
+      );
     }
     throw error;
   }
@@ -98,7 +105,7 @@ async function loadTypeScriptConfig(configPath: string): Promise<unknown> {
     // Use dynamic import to load the config file
     // This requires the file to be in a format that can be imported
     const configModule = await import(configPath);
-    
+
     // Support both default export and named export
     return configModule.default || configModule;
   } catch (error) {
@@ -106,7 +113,7 @@ async function loadTypeScriptConfig(configPath: string): Promise<unknown> {
     // This is a workaround for TypeScript files that need compilation
     throw new Error(
       `Failed to load TypeScript config. Ensure the file exports a default config object. ` +
-      `Error: ${error instanceof Error ? error.message : String(error)}`
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -118,7 +125,7 @@ function validateAndMerge(rawConfig: unknown, rootDir: string): ScanConfig {
   try {
     // Validate using config file schema (doesn't include rootDir)
     const validated = ConfigFileSchema.parse(rawConfig);
-    
+
     // Merge with defaults
     const merged: ScanConfig = {
       ...DEFAULT_CONFIG,
@@ -133,19 +140,23 @@ function validateAndMerge(rawConfig: unknown, rootDir: string): ScanConfig {
 
     return merged;
   } catch (error) {
-    if (error instanceof Error && error.name === 'ZodError') {
+    if (error instanceof Error && error.name === "ZodError") {
       const zodError = error as any;
-      const messages = zodError.errors.map((err: any) => {
-        const path = err.path.join('.');
-        return `  - ${path}: ${err.message}`;
-      }).join('\n');
-      
+      const messages = zodError.errors
+        .map((err: any) => {
+          const path = err.path.join(".");
+          return `  - ${path}: ${err.message}`;
+        })
+        .join("\n");
+
       throw new Error(
         `Invalid configuration:\n${messages}\n\n` +
-        `Please check your config file and ensure all fields match the expected schema.`
+          `Please check your config file and ensure all fields match the expected schema.`,
       );
     }
-    throw new Error(`Configuration validation failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Configuration validation failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
