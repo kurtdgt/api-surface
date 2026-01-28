@@ -8,8 +8,8 @@ export interface ApiCall {
   line: number;
   column: number;
   file: string;
-  source: 'fetch' | 'axios' | 'custom';
-  confidence?: 'high' | 'medium' | 'low';
+  source: "fetch" | "axios" | "custom";
+  confidence?: "high" | "medium" | "low";
 }
 
 /**
@@ -18,9 +18,9 @@ export interface ApiCall {
 export interface NormalizedEndpoint {
   method: string;
   url: string;
-  source: 'fetch' | 'axios' | 'custom';
+  source: "fetch" | "axios" | "custom";
   callSites: CallSite[];
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   callCount: number;
 }
 
@@ -31,19 +31,19 @@ export interface CallSite {
   file: string;
   line: number;
   column: number;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: "high" | "medium" | "low";
 }
 
 export interface ScanConfig {
   rootDir: string;
   include?: string[];
   exclude?: string[];
-  framework?: 'none' | 'nextjs' | 'next' | 'react' | 'generic';
+  framework?: "none" | "nextjs" | "next" | "react" | "react-native" | "generic";
   apiClients?: ApiClientConfig[];
 }
 
 export interface ApiClientConfig {
-  type: 'fetch' | 'axios' | 'custom';
+  type: "fetch" | "axios" | "custom";
   name?: string; // For custom clients
   patterns?: string[]; // Import patterns to detect (e.g., ['axios', '@/lib/api'])
 }

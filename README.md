@@ -40,6 +40,21 @@ This is a monorepo with the following packages:
 
 ## Usage
 
+### Zero-config (no config required)
+
+The scanner **always** runs both fetch and axios detectors. No config file is needed.
+
+- **Fetch** – `fetch()`, `fetch(url, { method: 'POST' })`, etc.
+- **Axios** – `axios.get()`, `axios.post()`, named imports from `'axios'`, and common wrappers like `api.get()` when `api` is from `@/config/axios`, `lib/axios`, `utils/axios`, etc.
+
+Just run:
+
+```bash
+npx api-surface scan ./path-to-repo
+```
+
+Config is optional. Use it only for custom include/exclude, framework hints, or extra API client patterns.
+
 ### Scan Command
 
 Scan a directory for API calls:
@@ -49,18 +64,23 @@ npx api-surface scan <directory>
 ```
 
 Options:
+
 - `--root <path>` - Root directory (defaults to `<directory>`)
 - `-c, --config <path>` - Path to config file
-- `--framework <type>` - Framework type: `none` or `nextjs` (default: `none`)
+- `--framework <type>` - Framework type: `none`, `nextjs`, `react-native`, `react`, `generic` (default: `none`)
 - `-o, --output <path>` - Output file path (default: stdout)
 
 Examples:
+
 ```bash
 # Scan current directory
 npx api-surface scan .
 
-# Scan with Next.js framework detection
+# Scan with Next.js framework
 npx api-surface scan ./src --framework nextjs
+
+# Scan React Native repo (zero-config: fetch + axios, excludes android/ios/.expo)
+npx api-surface scan . --framework react-native
 
 # Scan and save to file
 npx api-surface scan ./src --output scan-result.json
@@ -78,9 +98,11 @@ npx api-surface diff <baseline> <current>
 ```
 
 Options:
+
 - `-o, --output <path>` - Output file path (default: stdout)
 
 Example:
+
 ```bash
 npx api-surface diff baseline.json current.json --output diff.json
 ```
@@ -94,10 +116,12 @@ api-surface open [scan-file]
 ```
 
 Options:
+
 - `-p, --port <number>` - Port for web server (default: 3000)
 - `[scan-file]` - Optional path to scan result JSON file (auto-finds latest if not specified)
 
 Examples:
+
 ```bash
 # Open latest scan result in browser
 api-surface open
@@ -110,11 +134,39 @@ api-surface open --port 8080
 ```
 
 The web viewer shows:
+
 - Summary statistics
 - Endpoint list with HTTP methods
 - Call sites (file locations)
 - Confidence indicators
 - Grouped endpoints
+
+## React Native
+
+React Native repos work with **zero config**. The scanner:
+
+- Detects **fetch** and **axios** (including wrappers like `api.get()` from `@/config/axios`).
+- Excludes **android/**, **ios/**, **.expo/**, ****mocks**/** and config files by default.
+
+```bash
+# From the React Native project root
+npx api-surface scan . --framework react-native -o api-surface.json
+```
+
+Optional `api-surface.config.json` in the project root:
+
+```json
+{
+  "include": ["src/**/*.{js,jsx,ts,tsx}", "app/**/*.{js,jsx,ts,tsx}"],
+  "exclude": [
+    "**/node_modules/**",
+    "**/android/**",
+    "**/ios/**",
+    "**/.expo/**"
+  ],
+  "framework": "react-native"
+}
+```
 
 ## Complete Workflow Example
 
@@ -134,18 +186,20 @@ api-surface diff baseline.json results.json --output diff.json
 
 ## Configuration
 
-Create an `api-surface.config.ts` file in your project root:
+Configuration is **optional**. Fetch and axios are **always** scanned; config never turns them off.
+
+Use a config file only when you need custom include/exclude, framework hints, or extra API client patterns. Create an `api-surface.config.ts` (or `.json`) in your project root:
 
 ```typescript
 export default {
-  include: ['**/*.{js,jsx,ts,tsx}'],
-  exclude: ['**/node_modules/**', '**/dist/**'],
-  framework: 'nextjs', // or 'react', 'generic', 'none'
+  include: ["**/*.{js,jsx,ts,tsx}"],
+  exclude: ["**/node_modules/**", "**/dist/**"],
+  framework: "nextjs", // or 'react', 'generic', 'none'
   apiClients: [
-    { type: 'fetch' },
-    { type: 'axios' },
-    { type: 'custom', name: 'myApi', patterns: ['@/lib/api'] }
-  ]
+    { type: "fetch" },
+    { type: "axios" },
+    { type: "custom", name: "myApi", patterns: ["@/lib/api"] },
+  ],
 };
 ```
 
@@ -156,22 +210,21 @@ Or use JSON format (`api-surface.config.json`):
   "include": ["**/*.{js,jsx,ts,tsx}"],
   "exclude": ["**/node_modules/**", "**/dist/**"],
   "framework": "nextjs",
-  "apiClients": [
-    { "type": "fetch" },
-    { "type": "axios" }
-  ]
+  "apiClients": [{ "type": "fetch" }, { "type": "axios" }]
 }
 ```
 
 ## What Gets Detected
 
-The tool automatically detects:
+With or without config, the tool automatically detects:
 
 - **fetch()** calls: `fetch('/api/users')`, `fetch(url, { method: 'POST' })`
 - **axios** calls: `axios.get()`, `axios.post()`, `axios.request()`
 - Named imports: `import { get, post } from 'axios'` → `get()`, `post()`
+- **Axios wrappers** (no config needed): `api.get()`, `api.post()` when `api` is imported from common paths like `@/config/axios`, `lib/axios`, `utils/axios`, etc.
 
 Each detection includes:
+
 - HTTP method (GET, POST, etc.)
 - URL (with confidence: high/medium/low)
 - Source file and line number

@@ -41,6 +41,24 @@ const AXIOS_METHODS = [
 ];
 
 /**
+ * Default module path patterns for axios-like wrappers (no config needed).
+ * Any import from a path matching these is treated as a potential API client.
+ */
+const DEFAULT_AXIOS_WRAPPER_PATTERNS = [
+  "/axios",
+  "config/axios",
+  "lib/axios",
+  "utils/axios",
+  "api/axios",
+  "@/config/axios",
+  "@/lib/axios",
+  "@/utils/axios",
+  "@/api/axios",
+  "~/config/axios",
+  "~/lib/axios",
+];
+
+/**
  * Detector for axios API calls
  */
 export class AxiosDetector extends BaseDetector {
@@ -133,8 +151,8 @@ export class AxiosDetector extends BaseDetector {
       customApiImports: new Map<string, string>(),
     };
 
-    // Get custom patterns from config
-    const customPatterns: string[] = [];
+    // Get custom patterns from config, or use defaults (zero-config)
+    const customPatterns: string[] = [...DEFAULT_AXIOS_WRAPPER_PATTERNS];
     if (config?.apiClients) {
       for (const client of config.apiClients) {
         if (client.type === "axios" && client.patterns) {
@@ -172,13 +190,14 @@ export class AxiosDetector extends BaseDetector {
           moduleSpec.endsWith(pattern) ||
           moduleSpec.includes(pattern)
         ) {
-          // Check for named import 'api' or default import
-          if (imp.namedImports.includes("api")) {
-            axiosImports.customApiImports.set("api", moduleSpec);
+          // Any named or default import from this path is treated as axios-like
+          for (const name of imp.namedImports) {
+            axiosImports.customApiImports.set(name, moduleSpec);
           }
           if (imp.defaultImport) {
             axiosImports.customApiImports.set(imp.defaultImport, moduleSpec);
           }
+          break; // One pattern match is enough
         }
       }
     }

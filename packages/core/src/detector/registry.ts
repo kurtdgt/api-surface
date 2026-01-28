@@ -98,26 +98,28 @@ export class DetectorRegistry {
     return this.detectors.size;
   }
 
+  /** Built-in detector IDs that always run (no config required). */
+  private static readonly BUILTIN_ALWAYS_RUN = new Set(["fetch", "axios"]);
+
   /**
-   * Filter detectors based on config
-   * This allows config to enable/disable specific detectors
+   * Filter detectors based on config.
+   * Fetch and axios always run; config apiClients only adds custom detectors or patterns.
    */
   filterByConfig(config: ScanConfig): Detector[] {
     const enabled = this.getEnabled();
 
-    // If config specifies API clients, filter detectors that match
-    const apiClients = config.apiClients;
-    if (apiClients && Array.isArray(apiClients) && apiClients.length > 0) {
-      const allowedSources = new Set(apiClients.map((client) => client.type));
-
-      return enabled.filter((detector) => {
-        // Match detector ID to config type (e.g., 'axios' detector for 'axios' type)
-        // Built-in detectors: 'fetch' and 'axios' match their types
-        return allowedSources.has(detector.id as "fetch" | "axios" | "custom");
-      });
-    }
-
-    // If no apiClients specified, return all enabled detectors (backward compatibility)
-    return enabled;
+    return enabled.filter((detector) => {
+      // Always run built-in fetch and axios (zero-config)
+      if (DetectorRegistry.BUILTIN_ALWAYS_RUN.has(detector.id)) {
+        return true;
+      }
+      // Custom detectors: only run if listed in config apiClients
+      const apiClients = config.apiClients;
+      if (apiClients && Array.isArray(apiClients)) {
+        const allowedTypes = new Set(apiClients.map((c) => c.type));
+        return allowedTypes.has(detector.id as "fetch" | "axios" | "custom");
+      }
+      return false;
+    });
   }
 }

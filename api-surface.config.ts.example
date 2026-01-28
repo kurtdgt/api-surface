@@ -25,7 +25,7 @@ const config: ConfigInput = {
   ],
 
   // Framework hint (helps with framework-specific detection)
-  framework: 'next', // Options: 'none', 'nextjs', 'next', 'react', 'generic'
+  framework: 'next', // Options: 'none', 'nextjs', 'next', 'react', 'react-native', 'generic'
 
   // API clients to detect
   apiClients: [
