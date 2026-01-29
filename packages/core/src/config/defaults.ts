@@ -24,4 +24,8 @@ export const DEFAULT_CONFIG: Partial<ScanConfig> = {
   ],
   framework: "generic",
   apiClients: [{ type: "fetch" }, { type: "axios" }],
+  /** Default max lines to extract per function (safety limit) */
+  maxFunctionLines: 300,
+  /** Default directory for Next.js App Router API routes; when set, functionCode is the route handler, not the caller */
+  apiRoutesDir: "src/app/api",
 };

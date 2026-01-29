@@ -2,24 +2,34 @@
  * Scan command - scan a directory for API calls
  */
 
-import { ScanResult } from '@api-surface/types';
-import { ApiScanner } from '@api-surface/core';
+import { ScanResult } from "@api-surface/types";
+import { ApiScanner } from "@api-surface/core";
 // @ts-ignore - loadConfig export exists but dist needs rebuild
-import { loadConfig, writeResults, formatSummary } from '@api-surface/core';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import {
+  loadConfig,
+  writeResults,
+  writeFunctionCodePerEndpoint,
+  formatSummary,
+} from "@api-surface/core";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 export interface ScanOptions {
   root?: string;
   config?: string;
   framework?: string;
   output?: string;
+  /** Write one JSON file per endpoint with function code(s) into this directory */
+  functionCodeDir?: string;
 }
 
-export async function handleScan(directory: string, options: ScanOptions): Promise<void> {
+export async function handleScan(
+  directory: string,
+  options: ScanOptions,
+): Promise<void> {
   try {
     // Resolve root directory
-    const rootDir = options.root 
+    const rootDir = options.root
       ? path.resolve(process.cwd(), options.root)
       : path.resolve(process.cwd(), directory);
 
@@ -46,7 +56,12 @@ export async function handleScan(directory: string, options: ScanOptions): Promi
       config.framework = options.framework as any;
     }
 
-    console.log(`Using config from: ${options.config || 'defaults'}`);
+    // Override function code output dir if provided via CLI
+    if (options.functionCodeDir !== undefined) {
+      config.functionCodeOutputDir = options.functionCodeDir;
+    }
+
+    console.log(`Using config from: ${options.config || "defaults"}`);
 
     // Perform scan
     console.log(`Scanning ${rootDir}...`);
@@ -72,8 +87,26 @@ export async function handleScan(directory: string, options: ScanOptions): Promi
       const summary = formatSummary(result);
       console.log(summary);
     }
+
+    // If functionCodeOutputDir is set, write one JSON file per endpoint (API function only when apiRoutesDir is set)
+    if (config.functionCodeOutputDir) {
+      const functionCodeDir = path.resolve(
+        process.cwd(),
+        config.functionCodeOutputDir,
+      );
+      await writeFunctionCodePerEndpoint(result.apiCalls, functionCodeDir, {
+        pretty: true,
+        apiFunctionOnly: !!config.apiRoutesDir,
+        apiRoutesDir: config.apiRoutesDir,
+        rootDir: config.rootDir,
+      });
+      console.log(`\n✓ Function code per endpoint saved to ${functionCodeDir}`);
+    }
   } catch (error) {
-    console.error('Error during scan:', error instanceof Error ? error.message : String(error));
+    console.error(
+      "Error during scan:",
+      error instanceof Error ? error.message : String(error),
+    );
     process.exit(1);
   }
 }

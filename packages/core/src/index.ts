@@ -2,13 +2,17 @@
  * Core scanner - framework-agnostic API call detection
  */
 
-import { ScanConfig, ScanResult, ScanError } from '@api-surface/types';
-import { scanFiles } from './scanner/file-scanner';
-import { AstParser } from './ast/parser';
-import { DetectorRegistry } from './detector/registry';
-import { DetectorVisitor } from './detector/visitor';
-import { FetchDetector } from './detector/fetch-detector';
-import { AxiosDetector } from './detector/axios-detector';
+import { ScanConfig, ScanResult, ScanError } from "@api-surface/types";
+import { scanFiles } from "./scanner/file-scanner";
+import { AstParser } from "./ast/parser";
+import { DetectorRegistry } from "./detector/registry";
+import { DetectorVisitor } from "./detector/visitor";
+import { FetchDetector } from "./detector/fetch-detector";
+import { AxiosDetector } from "./detector/axios-detector";
+import {
+  extractFunctionCodeForApiCalls,
+  DEFAULT_MAX_FUNCTION_LINES,
+} from "./extraction";
 
 export class ApiScanner {
   private astParser: AstParser;
@@ -38,8 +42,10 @@ export class ApiScanner {
     // Register axios detector
     const axiosDetector = new AxiosDetector();
     this.detectorRegistry.register(axiosDetector);
-    
-    console.log(`Registered ${this.detectorRegistry.getCount()} built-in detector(s)`);
+
+    console.log(
+      `Registered ${this.detectorRegistry.getCount()} built-in detector(s)`,
+    );
   }
 
   /**
@@ -48,27 +54,30 @@ export class ApiScanner {
   async scan(): Promise<ScanResult> {
     // Step 1: Scan files
     const fileScanResult = await scanFiles(this.config);
-    
+
     console.log(`Found ${fileScanResult.count} files to scan`);
 
     // Step 2: Parse AST for each file and run detectors
     const errors: ScanError[] = [];
     let filesParsed = 0;
-    const allApiCalls: ScanResult['apiCalls'] = [];
+    const allApiCalls: ScanResult["apiCalls"] = [];
 
     for (const filePath of fileScanResult.files) {
       try {
         const context = this.astParser.parseFile(filePath);
-        
+
         if (context) {
           // Step 3: Create detector visitor and traverse AST
-          const detectorVisitor = new DetectorVisitor(this.detectorRegistry, this.config);
+          const detectorVisitor = new DetectorVisitor(
+            this.detectorRegistry,
+            this.config,
+          );
           detectorVisitor.traverse(context);
-          
+
           // Step 4: Collect API calls from detectors
           const apiCalls = detectorVisitor.getApiCalls();
           allApiCalls.push(...apiCalls);
-          
+
           filesParsed++;
         }
       } catch (error) {
@@ -81,6 +90,16 @@ export class ApiScanner {
 
     console.log(`Parsed ${filesParsed} files successfully`);
     console.log(`Detected ${allApiCalls.length} API calls`);
+
+    // Step 5: Extraction phase - when apiRoutesDir is set, extract API route handlers from e.g. src/app/api
+    const maxLines = this.config.maxFunctionLines ?? DEFAULT_MAX_FUNCTION_LINES;
+    extractFunctionCodeForApiCalls(
+      allApiCalls,
+      this.astParser.getProject(),
+      this.config.rootDir,
+      maxLines,
+      this.config.apiRoutesDir,
+    );
 
     return {
       apiCalls: allApiCalls,
@@ -106,16 +125,21 @@ export class ApiScanner {
   /**
    * Register a detector
    */
-  registerDetector(detector: import('./detector/detector').Detector): void {
+  registerDetector(detector: import("./detector/detector").Detector): void {
     this.detectorRegistry.register(detector);
   }
 }
 
-export * from '@api-surface/types';
-export { loadConfig } from './config/loader';
-export * from './config';
-export type { ConfigFileInput, ConfigInput, ApiClientConfigInput } from './config/schema';
-export * from './scanner';
-export * from './ast';
-export * from './detector';
-export * from './output';
+export * from "@api-surface/types";
+export { loadConfig } from "./config/loader";
+export * from "./config";
+export type {
+  ConfigFileInput,
+  ConfigInput,
+  ApiClientConfigInput,
+} from "./config/schema";
+export * from "./scanner";
+export * from "./ast";
+export * from "./detector";
+export * from "./output";
+export * from "./extraction";

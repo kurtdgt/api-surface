@@ -1,0 +1,38 @@
+{
+  "serviceKey": "rm_playground_database",
+  "actionName": "get-ai-campaign-campaign",
+  "displayName": "Get Campaign by ID",
+  "description": "Retrieves a specific campaign by ID with all related data including user, template, audience, analytics, sends, and counts.",
+  "language": "javascript",
+  "functionCode": "async function executeAction(payload, context) {\n  const { id, userId } = payload;\n\n  if (!id) {\n    return {\n      success: false,\n      error: \"Campaign ID is required\"\n    };\n  }\n\n  // Get system parameters\n  const dbUrl = context.systemParams.PLAYGROUND_DATABASE_URL;\n\n  if (!dbUrl) {\n    return {\n      success: false,\n      error: \"PLAYGROUND_DATABASE_URL system parameter is not configured\"\n    };\n  }\n\n  const { Pool } = require(\"pg\");\n  const dbPool = new Pool({ connectionString: dbUrl });\n\n  try {\n    // Build WHERE clause\n    let whereClause = `WHERE c.id = $1`;\n    const queryParams = [id];\n    let paramIndex = 2;\n\n    if (userId) {\n      whereClause += ` AND c.\"userId\" = $${paramIndex}`;\n      queryParams.push(userId);\n      paramIndex++;\n    }\n\n    // Fetch campaign with related data\n    const campaignQuery = `\n      SELECT c.*,\n             u.id as user_id, u.name as user_name, u.email as user_email,\n             t.id as template_id, t.name as template_name, t.content as template_content,\n             a.id as audience_id, a.name as audience_name, a.description as audience_description,\n             a.\"contactCount\" as audience_contact_count, a.filters as audience_filters,\n             (SELECT COUNT(*) FROM tbl_aicampaign_campaign_sends cs WHERE cs.\"campaignId\" = c.id) as sends_count,\n             (SELECT COUNT(*) FROM tbl_aicampaign_sms_messages sm WHERE sm.\"campaignId\" = c.id) as sms_messages_count\n      FROM tbl_aicampaign_campaigns c\n      LEFT JOIN tbl_aicampaign_users u ON c.\"userId\" = u.id\n      LEFT JOIN tbl_aicampaign_templates t ON c.\"templateId\" = t.id\n      LEFT JOIN tbl_aicampaign_audiences a ON c.\"audienceId\" = a.id\n      ${whereClause}\n      LIMIT 1\n    `;\n\n    const campaignResult = await dbPool.query(campaignQuery, queryParams);\n\n    if (campaignResult.rows.length === 0) {\n      return {\n        success: false,\n        error: \"Campaign not found\"\n      };\n    }\n\n    const campaign = campaignResult.rows[0];\n\n    // Get analytics\n    const analyticsResult = await dbPool.query(\n      `SELECT * FROM tbl_aicampaign_analytics WHERE \"campaignId\" = $1 ORDER BY date DESC`,\n      [id]\n    );\n\n    // Get sends (simplified - just count)\n    const sendsResult = await dbPool.query(\n      `SELECT id, status, \"sentAt\", \"deliveredAt\", \"openedAt\", \"clickedAt\", \"contactId\"\n       FROM tbl_aicampaign_campaign_sends\n       WHERE \"campaignId\" = $1\n       ORDER BY \"sentAt\" DESC\n       LIMIT 10`,\n      [id]\n    );\n\n    return {\n      success: true,\n      data: {\n        id: campaign.id,\n        name: campaign.name,\n        description: campaign.description,\n        type: campaign.type,\n        status: campaign.status,\n        createdAt: campaign.createdAt.toISOString(),\n        updatedAt: campaign.updatedAt.toISOString(),\n        scheduledAt: campaign.scheduledAt ? campaign.scheduledAt.toISOString() : null,\n        sentAt: campaign.sentAt ? campaign.sentAt.toISOString() : null,\n        subject: campaign.subject,\n        content: campaign.content,\n        smsContent: campaign.smsContent,\n        characterCount: campaign.characterCount,\n        estimatedCost: campaign.estimatedCost ? parseFloat(campaign.estimatedCost) : null,\n        complianceStatus: campaign.complianceStatus,\n        schedulingType: campaign.schedulingType,\n        templateId: campaign.templateId,\n        audienceId: campaign.audienceId,\n        userId: campaign.userId,\n        isABTest: campaign.isABTest,\n        abTestConfig: campaign.abTestConfig,\n        calendarEnabled: campaign.calendarEnabled,\n        calendarEventId: campaign.calendarEventId,\n        calendarSettings: campaign.calendarSettings,\n        user: campaign.user_id ? {\n          id: campaign.user_id,\n          name: campaign.user_name,\n          email: campaign.user_email\n        } : null,\n        template: campaign.template_id ? {\n          id: campaign.template_id,\n          name: campaign.template_name,\n          content: campaign.template_content\n        } : null,\n        audience: campaign.audience_id ? {\n          id: campaign.audience_id,\n          name: campaign.audience_name,\n          description: campaign.audience_description,\n          contactCount: campaign.audience_contact_count,\n          filters: campaign.audience_filters\n        } : null,\n        analytics: analyticsResult.rows.map(a => ({\n          id: a.id,\n          date: a.date.toISOString(),\n          metric: a.metric,\n          value: parseInt(a.value),\n          metadata: a.metadata,\n          createdAt: a.createdAt.toISOString()\n        })),\n        sends: sendsResult.rows.map(s => ({\n          id: s.id,\n          status: s.status,\n          sentAt: s.sentAt ? s.sentAt.toISOString() : null,\n          deliveredAt: s.deliveredAt ? s.deliveredAt.toISOString() : null,\n          openedAt: s.openedAt ? s.openedAt.toISOString() : null,\n          clickedAt: s.clickedAt ? s.clickedAt.toISOString() : null,\n          contactId: s.contactId\n        })),\n        _count: {\n          sends: parseInt(campaign.sends_count) || 0,\n          smsMessages: parseInt(campaign.sms_messages_count) || 0\n        }\n      }\n    };\n  } catch (error) {\n    context.logger.error(\"Get campaign error:\", error);\n    return {\n      success: false,\n      error: `Failed to fetch campaign: ${error.message}`\n    };\n  } finally {\n    await dbPool.end();\n  }\n}",
+  "httpMethod": "GET",
+  "systemParameters": ["PLAYGROUND_DATABASE_URL"],
+  "payloadSchema": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Campaign ID"
+      },
+      "userId": {
+        "type": "string",
+        "description": "Optional user ID for access control"
+      }
+    },
+    "required": ["id"]
+  },
+  "responseSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "data": {
+        "type": "object"
+      },
+      "error": {
+        "type": "string"
+      }
+    }
+  }
+}

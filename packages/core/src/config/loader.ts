@@ -134,6 +134,11 @@ function validateAndMerge(rawConfig: unknown, rootDir: string): ScanConfig {
       include: validated.include ?? DEFAULT_CONFIG.include,
       exclude: validated.exclude ?? DEFAULT_CONFIG.exclude,
       apiClients: validated.apiClients ?? DEFAULT_CONFIG.apiClients,
+      functionCodeOutputDir:
+        validated.functionCodeOutputDir ?? DEFAULT_CONFIG.functionCodeOutputDir,
+      maxFunctionLines:
+        validated.maxFunctionLines ?? DEFAULT_CONFIG.maxFunctionLines,
+      apiRoutesDir: validated.apiRoutesDir ?? DEFAULT_CONFIG.apiRoutesDir,
       // rootDir always comes from the function parameter, not config file
       rootDir,
     };

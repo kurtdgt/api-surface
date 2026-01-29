@@ -1,0 +1,19 @@
+{
+  "serviceKey": "",
+  "actionName": "",
+  "displayName": "",
+  "description": "",
+  "language": "javascript",
+  "functionCode": "",
+  "httpMethod": "POST",
+  "systemParameters": [],
+  "payloadSchema": {
+    "type": "object",
+    "properties": {},
+    "required": []
+  },
+  "responseSchema": {
+    "type": "object",
+    "properties": {}
+  }
+}

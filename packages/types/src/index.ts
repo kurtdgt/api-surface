@@ -2,6 +2,14 @@
  * Shared types for api-surface
  */
 
+/**
+ * Confidence for function code resolution (static analysis).
+ * - high: function directly contains the API call
+ * - medium: imported local function resolved
+ * - low: fallback or partial extraction
+ */
+export type FunctionResolutionConfidence = "high" | "medium" | "low";
+
 export interface ApiCall {
   method: string;
   url: string;
@@ -10,6 +18,14 @@ export interface ApiCall {
   file: string;
   source: "fetch" | "axios" | "custom";
   confidence?: "high" | "medium" | "low";
+  /** Name of the function that contains the API call (if resolved) */
+  functionName?: string;
+  /** File path where the function is defined */
+  functionFile?: string;
+  /** Full source code of the function (best-effort, static analysis only) */
+  functionCode?: string | null;
+  /** Confidence of function code resolution */
+  functionResolutionConfidence?: FunctionResolutionConfidence;
 }
 
 /**
@@ -40,6 +56,12 @@ export interface ScanConfig {
   exclude?: string[];
   framework?: "none" | "nextjs" | "next" | "react" | "react-native" | "generic";
   apiClients?: ApiClientConfig[];
+  /** If set, write one JSON file per endpoint with function code(s) into this directory */
+  functionCodeOutputDir?: string;
+  /** Max lines to extract per function (default 300). Do not extract entire files. */
+  maxFunctionLines?: number;
+  /** Directory where API route handlers live (e.g. Next.js App Router "src/app/api"). When set, functionCode is taken from the route handler for the called URL, not the caller. */
+  apiRoutesDir?: string;
 }
 
 export interface ApiClientConfig {

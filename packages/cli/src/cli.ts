@@ -29,6 +29,10 @@ program
     "none",
   )
   .option("-o, --output <path>", "Output file path")
+  .option(
+    "--function-code-dir <path>",
+    "Write one JSON file per endpoint with function code(s) into this directory",
+  )
   .action(async (directory: string, options: ScanOptions) => {
     await handleScan(directory, options);
   });
