@@ -1,0 +1,771 @@
+{
+  "summary": {
+    "totalCalls": 63,
+    "uniqueEndpoints": 41,
+    "filesScanned": 66,
+    "errors": 0,
+    "byMethod": {
+      "DELETE": 2,
+      "GET": 22,
+      "POST": 16,
+      "PUT": 1
+    },
+    "bySource": {
+      "fetch": 41
+    },
+    "byConfidence": {
+      "high": 21,
+      "medium": 19,
+      "low": 1
+    }
+  },
+  "endpoints": [
+    {
+      "method": "DELETE",
+      "url": "/api/inspection/media",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/gallery/page.tsx",
+          "line": 358,
+          "column": 25,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 484,
+          "column": 25,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 618,
+          "column": 25,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 3
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/prospect-assignment?prospectId=${deleteTarget.prospectId}&mondayUserId=${deleteTarget.mondayUserId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/assign-prospect/page.tsx",
+          "line": 258,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/auth/check-session",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/stores/AuthStore.ts",
+          "line": 224,
+          "column": 34,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/${id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 187,
+          "column": 27,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/${inspectionId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/address/page.tsx",
+          "line": 49,
+          "column": 36,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 334,
+          "column": 27,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/property/${p.id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 544,
+          "column": 27,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/map/page.tsx",
+          "line": 330,
+          "column": 27,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/property/${property.id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 483,
+          "column": 30,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/map/page.tsx",
+          "line": 493,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/recent?inspectorId=${user.id}&limit=3",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 716,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/sign-url?url=${encodeURIComponent(target.thumbnail)}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/gallery/page.tsx",
+          "line": 336,
+          "column": 27,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/stats?inspectorId=${user.id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 695,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/submissions?${params.toString()}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/submissions/page.tsx",
+          "line": 89,
+          "column": 30,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/gallery/page.tsx",
+          "line": 217,
+          "column": 25,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "GET",
+      "url": "/api/inspection/submissions?inspectorId=${user.id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/submissions/page.tsx",
+          "line": 42,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/prospect-assignment",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/assign-prospect/page.tsx",
+          "line": 72,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/prospect-assignment?mondayUserId=${user.id}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 172,
+          "column": 42,
+          "confidence": "medium"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/map/page.tsx",
+          "line": 228,
+          "column": 42,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 2
+    },
+    {
+      "method": "GET",
+      "url": "/api/prospect/${data.prospectId}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 196,
+          "column": 39,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "/api/users",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/assign-prospect/page.tsx",
+          "line": 84,
+          "column": 42,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/assign-prospect/page.tsx",
+          "line": 154,
+          "column": 30,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/submissions/page.tsx",
+          "line": 51,
+          "column": 25,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/gallery/page.tsx",
+          "line": 182,
+          "column": 25,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 4
+    },
+    {
+      "method": "GET",
+      "url": "${BASE_URL}/check-session",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/test-auth.ts",
+          "line": 32,
+          "column": 35,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "http://localhost:3000/api/auth/check-session",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/scripts/test-monday-login.js",
+          "line": 82,
+          "column": 39,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "https://maps.googleapis.com/maps/api/geocode/json?latlng=${coords.latitude},${coords.longitude}&key=${apiKey}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/services/LocationService.ts",
+          "line": 289,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 68,
+          "column": 30,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "https://storm-track-rm.vercel.app/api/prospect",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/prospects/route.ts",
+          "line": 10,
+          "column": 28,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "https://storm-track-rm.vercel.app/api/prospect/${id}?includeAll=true",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/prospect/[id]/route.ts",
+          "line": 14,
+          "column": 28,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "https://storm-track-rm.vercel.app/api/prospect/3bda8ba3-2c63-41d8-a743-00fe075e9318?includeAll=true",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/properties/route.ts",
+          "line": 5,
+          "column": 28,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "GET",
+      "url": "url",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/api.ts",
+          "line": 40,
+          "column": 28,
+          "confidence": "low"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/api.ts",
+          "line": 53,
+          "column": 39,
+          "confidence": "low"
+        }
+      ],
+      "confidence": "low",
+      "callCount": 2
+    },
+    {
+      "method": "POST",
+      "url": "/api/auth/login",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/stores/AuthStore.ts",
+          "line": 50,
+          "column": 34,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/auth/logout",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/stores/AuthStore.ts",
+          "line": 154,
+          "column": 36,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/auth/refresh",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/stores/AuthStore.ts",
+          "line": 189,
+          "column": 34,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/inspection",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/dashboard/page.tsx",
+          "line": 510,
+          "column": 31,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/address/page.tsx",
+          "line": 133,
+          "column": 34,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/map/page.tsx",
+          "line": 520,
+          "column": 31,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 3
+    },
+    {
+      "method": "POST",
+      "url": "/api/inspection/add-media",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 440,
+          "column": 13,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 487,
+          "column": 15,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 2
+    },
+    {
+      "method": "POST",
+      "url": "/api/inspection/update-media-tags",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 339,
+          "column": 17,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 1073,
+          "column": 43,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 565,
+          "column": 19,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 838,
+          "column": 43,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 4
+    },
+    {
+      "method": "POST",
+      "url": "/api/inspections",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/services/OfflineService.ts",
+          "line": 134,
+          "column": 28,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/media/sync",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/services/OfflineService.ts",
+          "line": 152,
+          "column": 28,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/pins",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/services/OfflineService.ts",
+          "line": 169,
+          "column": 28,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/prospect-assignment",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/admin/assign-prospect/page.tsx",
+          "line": 215,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "/api/upload",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 420,
+          "column": 30,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 464,
+          "column": 30,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 2
+    },
+    {
+      "method": "POST",
+      "url": "${BASE_URL}/login",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/test-auth.ts",
+          "line": 12,
+          "column": 33,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "${BASE_URL}/logout",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/test-auth.ts",
+          "line": 54,
+          "column": 34,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "${BASE_URL}/refresh",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/lib/test-auth.ts",
+          "line": 43,
+          "column": 35,
+          "confidence": "medium"
+        }
+      ],
+      "confidence": "medium",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "http://localhost:3000/api/auth/login",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/scripts/test-monday-login.js",
+          "line": 44,
+          "column": 35,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "POST",
+      "url": "http://localhost:3000/api/auth/refresh",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/scripts/test-monday-login.js",
+          "line": 107,
+          "column": 39,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 1
+    },
+    {
+      "method": "PUT",
+      "url": "/api/inspection",
+      "source": "fetch",
+      "callSites": [
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/[id]/page.tsx",
+          "line": 362,
+          "column": 30,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/address/page.tsx",
+          "line": 112,
+          "column": 34,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 503,
+          "column": 17,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/media/page.tsx",
+          "line": 649,
+          "column": 15,
+          "confidence": "high"
+        },
+        {
+          "file": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/inspection/submit/page.tsx",
+          "line": 98,
+          "column": 15,
+          "confidence": "high"
+        }
+      ],
+      "confidence": "high",
+      "callCount": 5
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "method": "POST",
+  "url": "http://localhost:3000/api/auth/refresh",
+  "functionName": "POST",
+  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/auth/refresh/route.ts",
+  "functionCode": "export async function POST(request: NextRequest) {\n  try {\n    const body = await request.json();\n    const { refreshToken } = body;\n\n    if (!refreshToken) {\n      return NextResponse.json(\n        { error: 'Refresh token is required' },\n        { status: 400 }\n      );\n    }\n\n    // Verify refresh token\n    const user = await verifyRefreshToken(refreshToken);\n\n    if (!user) {\n      return NextResponse.json(\n        { error: 'Invalid or expired refresh token' },\n        { status: 401 }\n      );\n    }\n\n    // Revoke the old refresh token\n    await revokeRefreshToken(refreshToken);\n\n    // Generate new tokens\n    const tokens = await generateAuthTokens(user);\n\n    return NextResponse.json({\n      success: true,\n      message: 'Token refreshed successfully',\n      data: {\n        user: {\n          id: user.id,\n          email: user.email,\n          name: user.name,\n          role: user.role,\n          avatar: user.avatar,\n        },\n        accessToken: tokens.accessToken,\n        refreshToken: tokens.refreshToken,\n        expiresIn: tokens.expiresIn,\n      },\n    });\n  } catch (error) {\n    console.error('Refresh token error:', error);\n    return NextResponse.json(\n      { error: 'Internal server error' },\n      { status: 500 }\n    );\n  }\n}",
+  "functionResolutionConfidence": "high"
+}

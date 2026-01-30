@@ -1,0 +1,8 @@
+{
+  "method": "DELETE",
+  "url": "/api/prospect-assignment?prospectId=${deleteTarget.prospectId}&mondayUserId=${deleteTarget.mondayUserId}",
+  "functionName": "DELETE",
+  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/prospect-assignment/route.ts",
+  "functionCode": "async function DELETE(request: AuthenticatedRequest) {\n  try {\n    const { searchParams } = new URL(request.url)\n    const prospectId = searchParams.get('prospectId')\n    const mondayUserId = searchParams.get('mondayUserId')\n\n    if (!prospectId || !mondayUserId) {\n      return NextResponse.json(\n        { success: false, error: 'prospectId and mondayUserId are required' },\n        { status: 400 }\n      )\n    }\n\n    const success = await prospectAssignmentRepo.removeAssignment(prospectId, mondayUserId)\n    \n    if (success) {\n      return NextResponse.json({\n        success: true,\n        message: 'Assignment removed successfully'\n      })\n    } else {\n      return NextResponse.json(\n        { success: false, error: 'Assignment not found or could not be removed' },\n        { status: 404 }\n      )\n    }\n  } catch (error) {\n    console.error('Error removing prospect assignment:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to remove assignment' },\n      { status: 500 }\n    )\n  }\n}",
+  "functionResolutionConfidence": "high"
+}

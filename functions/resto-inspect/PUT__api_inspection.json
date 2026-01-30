@@ -1,0 +1,8 @@
+{
+  "method": "PUT",
+  "url": "/api/inspection",
+  "functionName": "PUT",
+  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/inspection/route.ts",
+  "functionCode": "export async function PUT(request: NextRequest) {\n  try {\n    const { id, ...data }: { id: string } & UpdateInspectionData = await request.json()\n    \n    const inspection = await inspectionRepo.updateInspection(id, data)\n    \n    return NextResponse.json(inspection)\n  } catch (error) {\n    console.error('Update inspection error:', error)\n    return NextResponse.json(\n      { error: 'Failed to update inspection' },\n      { status: 500 }\n    )\n  }\n}",
+  "functionResolutionConfidence": "high"
+}

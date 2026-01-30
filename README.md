@@ -29,6 +29,42 @@ cd packages/cli && npm link
 api-surface scan ./your-project
 ```
 
+## Commands
+
+| Command                               | Description                                               |
+| ------------------------------------- | --------------------------------------------------------- |
+| `scan <directory>`                    | Scan a directory for API calls (fetch, axios, custom).    |
+| `diff <baseline> <current>`           | Compare two scan result JSON files.                       |
+| `open [scan-file]`                    | Open scan results in a web viewer.                        |
+| `actions <input-dir> -o <output-dir>` | Generate action JSON from API function JSON using OpenAI. |
+
+### Command templates
+
+```bash
+# Scan – detect API calls, optional function code output and config
+api-surface scan <directory> [options]
+  --root <path>              Root directory (defaults to <directory>)
+  -c, --config <path>        Path to api-surface config file
+  --framework <type>         none | nextjs | react-native | react | generic (default: none)
+  -o, --output <path>        Write normalized scan result JSON to file
+  --function-code-dir <path> Write one JSON per endpoint (API function code) into this directory
+
+# Diff – compare two scan results
+api-surface diff <baseline> <current> [options]
+  -o, --output <path>        Write diff result to file
+
+# Open – view scan results in browser
+api-surface open [scan-file] [options]
+  -p, --port <number>        Web server port (default: 3000)
+
+# Actions – generate action JSON from API function JSON (OpenAI)
+api-surface actions <input-dir> -o <output-dir> [options]
+  -o, --output-dir <path>    (required) Directory where action JSON files are written
+  --service-key <key>        Default serviceKey for generated actions
+  --env <path>               Path to .env file (for OPENAI_API_KEY; default: .env in cwd)
+  -c, --config <path>        Path to action.config.json (defaultDatabaseUrl, defaultServiceKey)
+```
+
 ## Structure
 
 This is a monorepo with the following packages:
@@ -69,6 +105,7 @@ Options:
 - `-c, --config <path>` - Path to config file
 - `--framework <type>` - Framework type: `none`, `nextjs`, `react-native`, `react`, `generic` (default: `none`)
 - `-o, --output <path>` - Output file path (default: stdout)
+- `--function-code-dir <path>` - Write one JSON file per endpoint (API function code) into this directory; when `apiRoutesDir` is set in config, only endpoints resolved from that directory (e.g. `src/app/api`) are written
 
 Examples:
 
@@ -146,7 +183,7 @@ The web viewer shows:
 React Native repos work with **zero config**. The scanner:
 
 - Detects **fetch** and **axios** (including wrappers like `api.get()` from `@/config/axios`).
-- Excludes **android/**, **ios/**, **.expo/**, ****mocks**/** and config files by default.
+- Excludes **android/**, **ios/**, **.expo/**, \***\*mocks**/\*\* and config files by default.
 
 ```bash
 # From the React Native project root
@@ -182,6 +219,21 @@ api-surface open results.json
 
 # 4. Compare with previous scan
 api-surface diff baseline.json results.json --output diff.json
+```
+
+### Actions workflow (API function → action JSON)
+
+Requires `OPENAI_API_KEY` in `.env`. Uses `action.config.json` for `defaultDatabaseUrl` and `defaultServiceKey` (optional).
+
+```bash
+# 1. Scan with API function output (only endpoints from src/app/api when apiRoutesDir is set)
+api-surface scan ./your-project -o results.json --function-code-dir functions/resto-inspect
+
+# 2. Generate action JSON from those function files
+api-surface actions functions/resto-inspect -o ./actions
+
+# With custom config and service key
+api-surface actions functions/resto-inspect -o ./actions -c action.config.json --service-key rm_playground_database
 ```
 
 ## Configuration

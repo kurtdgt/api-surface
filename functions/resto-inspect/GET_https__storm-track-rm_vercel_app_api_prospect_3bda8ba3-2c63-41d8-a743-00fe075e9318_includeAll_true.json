@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "url": "https://storm-track-rm.vercel.app/api/prospect/3bda8ba3-2c63-41d8-a743-00fe075e9318?includeAll=true",
+  "functionName": "GET",
+  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/properties/route.ts",
+  "functionCode": "export async function GET() {\n  try {\n    const response = await fetch('https://storm-track-rm.vercel.app/api/prospect/3bda8ba3-2c63-41d8-a743-00fe075e9318?includeAll=true', {\n      headers: {\n        'x-api-token': 'storm-track-default-token-2024',\n        'Content-Type': 'application/json',\n        'Cache-Control': 'no-cache, no-store, must-revalidate',\n        'Pragma': 'no-cache',\n        'Expires': '0',\n      },\n    });\n\n    if (!response.ok) {\n      throw new Error(`HTTP error! status: ${response.status}`);\n    }\n\n    const data = await response.json();\n    \n    return NextResponse.json(data);\n  } catch (error) {\n    console.error('Error fetching properties:', error);\n    return NextResponse.json(\n      { error: 'Failed to fetch properties' },\n      { status: 500 }\n    );\n  }\n}",
+  "functionResolutionConfidence": "high"
+}

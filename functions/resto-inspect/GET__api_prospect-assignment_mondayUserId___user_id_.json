@@ -1,0 +1,8 @@
+{
+  "method": "GET",
+  "url": "/api/prospect-assignment?mondayUserId=${user.id}",
+  "functionName": "GET",
+  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/prospect-assignment/route.ts",
+  "functionCode": "async function GET(request: AuthenticatedRequest) {\n  try {\n    const { searchParams } = new URL(request.url)\n    const prospectId = searchParams.get('prospectId')\n    const mondayUserId = searchParams.get('mondayUserId')\n    \n    let assignments\n    \n    if (prospectId) {\n      // Get assignments for a specific prospect\n      assignments = await prospectAssignmentRepo.getAssignmentsByProspect(prospectId)\n    } else if (mondayUserId) {\n      // Get assignments for a specific user\n      assignments = await prospectAssignmentRepo.getAssignmentsByUser(mondayUserId)\n    } else {\n      // Get all assignments (with pagination)\n      const skip = parseInt(searchParams.get('skip') || '0')\n      const take = parseInt(searchParams.get('take') || '50')\n      assignments = await prospectAssignmentRepo.getAllAssignments(skip, take)\n    }\n\n    return NextResponse.json({\n      success: true,\n      assignments: assignments\n    })\n  } catch (error) {\n    console.error('Error fetching prospect assignments:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to fetch assignments' },\n      { status: 500 }\n    )\n  }\n}",
+  "functionResolutionConfidence": "high"
+}

@@ -1,3 +1,4 @@
 {
-  "defaultDatabaseUrl": "PLAYGROUND_DATABASE_URL"
+  "defaultDatabaseUrl": "PLAYGROUND_DATABASE_URL",
+  "defaultServiceKey": "rm_playground_database"
 }

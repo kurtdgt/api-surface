@@ -5,9 +5,11 @@
  */
 
 import { Command } from "commander";
-import { handleScan, ScanOptions } from "./commands/scan";
-import { handleDiff, DiffOptions } from "./commands/diff";
+import { handleActions } from "./commands/actions";
+import { DiffOptions, handleDiff } from "./commands/diff";
 import { handleOpen, OpenOptions } from "./commands/open";
+import { handleScan, ScanOptions } from "./commands/scan";
+import { handleValidateFunctions } from "./commands/validate-functions";
 
 const program = new Command();
 
@@ -65,6 +67,76 @@ program
   .action(async (scanFile: string | undefined, options: OpenOptions) => {
     await handleOpen(scanFile || "", options);
   });
+
+// Validate function JSON files
+program
+  .command("validate-functions")
+  .description(
+    "Validate API function JSON files (method, url). Use --fix to normalize formatting.",
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing API function JSON files (e.g. functions/resto-inspect)",
+  )
+  .option(
+    "--fix",
+    "Rewrite valid files with consistent JSON formatting (2-space indent)",
+  )
+  .action(async (inputDir: string, options: { fix?: boolean }) => {
+    await handleValidateFunctions({
+      inputDir,
+      fix: options.fix,
+    });
+  });
+
+// Actions command - generate action JSON from API function JSON using Claude or OpenAI
+program
+  .command("actions")
+  .description(
+    "Generate action JSON files from API function JSON (from scan --function-code-dir) using Claude (ANTHROPIC_API_KEY) or OpenAI (OPENAI_API_KEY)",
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing API function JSON files (e.g. functions/resto-inspect)",
+  )
+  .requiredOption(
+    "-o, --output-dir <path>",
+    "Directory where action JSON files will be written",
+  )
+  .option(
+    "--service-key <key>",
+    "Default serviceKey for generated actions (e.g. rm_playground_database)",
+  )
+  .option("--env <path>", "Path to .env file (default: .env in cwd)")
+  .option(
+    "-c, --config <path>",
+    "Path to action.config.json (default: action.config.json in cwd). Use it to set defaultDatabaseUrl and defaultServiceKey.",
+  )
+  .option(
+    "--name <app-name>",
+    "App name to concatenate with action name (e.g. resto-inspect → get-resto-inspect-properties)",
+  )
+  .action(
+    async (
+      inputDir: string,
+      options: {
+        outputDir: string;
+        serviceKey?: string;
+        env?: string;
+        config?: string;
+        name?: string;
+      },
+    ) => {
+      await handleActions({
+        inputDir,
+        outputDir: options.outputDir,
+        serviceKey: options.serviceKey,
+        appName: options.name,
+        envPath: options.env,
+        configPath: options.config,
+      });
+    },
+  );
 
 // Parse arguments
 program.parse();
