@@ -15,6 +15,7 @@ CLI to scan JavaScript/TypeScript repos for frontend API calls and generate acti
 | [open](#open)                             | Serve scan results in a web viewer.                                                             |
 | [validate-functions](#validate-functions) | Validate API function JSON files (method, url). Optional `--fix` to normalize formatting.       |
 | [actions](#actions)                       | Generate action JSON from API function JSON using Claude or OpenAI (executeAction format).      |
+| [upload-actions](#upload-actions)         | Upload action JSON files from a directory to the Railway action-generator API.                  |
 
 ---
 
@@ -147,6 +148,31 @@ api-surface actions functions/resto-inspect -o actions/resto-inspect --name rest
 
 ---
 
+## upload-actions
+
+Upload action JSON files from a directory to the Railway action-generator API. Each file is sent as `POST` with `Content-Type: application/json` to the create-simple endpoint.
+
+```bash
+api-surface upload-actions <input-dir> [options]
+```
+
+| Argument / option | Description                                                                 |
+| ----------------- | --------------------------------------------------------------------------- |
+| `<input-dir>`     | Directory containing action JSON files (e.g. `actions/resto-inspect`).      |
+| `--url <url>`     | API URL (default: Railway production URL, or `RAILWAY_ACTION_URL` env var). |
+
+**Default URL:** `https://refreshing-amazement-production.up.railway.app/api/action-generator/create-simple`
+
+**Examples**
+
+```bash
+api-surface upload-actions actions/resto-inspect
+RAILWAY_ACTION_URL=https://your-app.up.railway.app/api/action-generator/create-simple api-surface upload-actions actions/resto-inspect
+api-surface upload-actions actions/resto-inspect --url https://staging.up.railway.app/api/action-generator/create-simple
+```
+
+---
+
 ## Typical workflow
 
 1. **Scan** and emit function-code JSON per endpoint:
@@ -164,16 +190,22 @@ api-surface actions functions/resto-inspect -o actions/resto-inspect --name rest
 3. **Generate actions** (Claude or OpenAI):
 
    ```bash
-   api-surface actions functions/resto-inspect -o actions/resto-inspect
+   api-surface actions functions/resto-inspect -o actions/resto-inspect --name resto-inspect
    ```
 
-4. **View scan results** (optional):
+4. **Upload actions** to Railway (optional):
+
+   ```bash
+   api-surface upload-actions actions/resto-inspect
+   ```
+
+5. **View scan results** (optional):
 
    ```bash
    api-surface open results.json
    ```
 
-5. **Compare scans** (optional):
+6. **Compare scans** (optional):
    ```bash
    api-surface diff baseline.json results.json -o diff.json
    ```

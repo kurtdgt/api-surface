@@ -87,6 +87,7 @@ CRITICAL - functionCode conversion (Next.js handler → executeAction):
   5. NextResponse.json({ ... }) → return { success: true, data: ... } or return { success: false, error: "..." }.
   6. Validation errors (400) → return { success: false, error: "message" }.
   7. Keep the core business logic (DB calls, validation, etc.) inside executeAction; only the signature and I/O must follow the pattern above.
+  8. Do NOT use Prisma or @prisma/client in functionCode. If the original handler uses prisma (e.g. prisma.inspection.findMany), rewrite the logic using raw SQL and a database client (e.g. const { Pool } = require("pg"); const pool = new Pool({ connectionString: context.systemParams.PLAYGROUND_DATABASE_URL }); pool.query("SELECT ...")). Translate Prisma queries into equivalent SQL; use context.systemParams for the connection string.
 - actionName must be kebab-case, e.g. get-api-users or post-api-auth-login.
 - Infer payloadSchema from the handler (request body, query, params).
 - responseSchema must include success, data, error as in the shape above.
@@ -104,6 +105,8 @@ function buildUserPrompt(
     `  async function executeAction(payload, context) { ... }`,
     ``,
     `Map: request body/params → payload; process.env → context.systemParams; NextResponse.json → return { success, data } or { success: false, error }.`,
+    ``,
+    `Do NOT use Prisma or @prisma/client in the generated functionCode. Use raw SQL with pg (node-postgres) and context.systemParams for the database URL instead.`,
     ``,
     `method: ${payload.method}`,
     `url: ${payload.url}`,

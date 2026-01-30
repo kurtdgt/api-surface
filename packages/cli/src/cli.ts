@@ -9,6 +9,7 @@ import { handleActions } from "./commands/actions";
 import { DiffOptions, handleDiff } from "./commands/diff";
 import { handleOpen, OpenOptions } from "./commands/open";
 import { handleScan, ScanOptions } from "./commands/scan";
+import { handleUploadActions } from "./commands/upload-actions";
 import { handleValidateFunctions } from "./commands/validate-functions";
 
 const program = new Command();
@@ -86,6 +87,27 @@ program
     await handleValidateFunctions({
       inputDir,
       fix: options.fix,
+    });
+  });
+
+// Upload actions to Railway
+program
+  .command("upload-actions")
+  .description(
+    "Upload action JSON files from a directory to the Railway action-generator API (create-simple)",
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing action JSON files (e.g. actions/resto-inspect)",
+  )
+  .option(
+    "--url <url>",
+    "API URL (default: Railway production or RAILWAY_ACTION_URL env)",
+  )
+  .action(async (inputDir: string, options: { url?: string }) => {
+    await handleUploadActions({
+      inputDir,
+      url: options.url,
     });
   });
 
