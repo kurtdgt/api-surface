@@ -6,6 +6,7 @@
 
 import { Command } from "commander";
 import { handleActions } from "./commands/actions";
+import { handleDashboard } from "./commands/dashboard";
 import { DiffOptions, handleDiff } from "./commands/diff";
 import { handleOpen, OpenOptions } from "./commands/open";
 import { handleScan, ScanOptions } from "./commands/scan";
@@ -49,6 +50,26 @@ program
   .option("-o, --output <path>", "Output file path")
   .action(async (baseline: string, current: string, options: DiffOptions) => {
     await handleDiff(baseline, current, options);
+  });
+
+// Dashboard - full UI for scan results, functions, actions, and run commands
+program
+  .command("dashboard")
+  .description(
+    "Start the dashboard UI to view scan results, functions, actions, and run commands via buttons",
+  )
+  .option(
+    "-p, --port <number>",
+    "Port for the dashboard server",
+    (v) => parseInt(v, 10),
+    3000,
+  )
+  .option("--no-open", "Do not open the browser automatically")
+  .action(async (options: { port: number; open?: boolean }) => {
+    await handleDashboard({
+      port: options.port,
+      openBrowser: options.open !== false,
+    });
   });
 
 // Open command

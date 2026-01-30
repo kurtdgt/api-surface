@@ -16,6 +16,7 @@ CLI to scan JavaScript/TypeScript repos for frontend API calls and generate acti
 | [validate-functions](#validate-functions) | Validate API function JSON files (method, url). Optional `--fix` to normalize formatting.       |
 | [actions](#actions)                       | Generate action JSON from API function JSON using Claude or OpenAI (executeAction format).      |
 | [upload-actions](#upload-actions)         | Upload action JSON files from a directory to the Railway action-generator API.                  |
+| [dashboard](#dashboard)                   | Start the dashboard UI (scan results, functions, actions, run commands via buttons).            |
 
 ---
 
@@ -173,6 +174,29 @@ api-surface upload-actions actions/resto-inspect --url https://staging.up.railwa
 
 ---
 
+## dashboard
+
+Start the dashboard UI in your browser. View scan results, function JSON files, and action JSON files; run **Scan**, **Validate functions**, **Generate actions**, and **Upload actions** with buttons (paths are configurable in the UI).
+
+```bash
+api-surface dashboard [options]
+```
+
+| Option           | Description                                    |
+| ---------------- | ---------------------------------------------- |
+| `-p, --port <n>` | Port for the dashboard server (default: 3000). |
+| `--no-open`      | Do not open the browser automatically.         |
+
+**Examples**
+
+```bash
+api-surface dashboard
+api-surface dashboard -p 4000
+api-surface dashboard --no-open
+```
+
+---
+
 ## Typical workflow
 
 1. **Scan** and emit function-code JSON per endpoint:
@@ -209,3 +233,11 @@ api-surface upload-actions actions/resto-inspect --url https://staging.up.railwa
    ```bash
    api-surface diff baseline.json results.json -o diff.json
    ```
+
+**Or use the dashboard** to view everything and run commands from the browser:
+
+```bash
+api-surface dashboard
+```
+
+Then use the **Scan Results**, **Functions**, and **Actions** tabs to view data, and the **Run Commands** tab to run Scan, Validate, Generate actions, and Upload with one click (paths are editable in the header).
