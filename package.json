@@ -9,7 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "start": "npm run build && api-surface dashboard"
   },
   "engines": {
     "node": ">=18.0.0"

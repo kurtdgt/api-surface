@@ -1,8 +1,0 @@
-{
-  "method": "POST",
-  "url": "/api/inspection",
-  "functionName": "POST",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/inspection/route.ts",
-  "functionCode": "export async function POST(request: NextRequest) {\n  try {\n    const data = await request.json()\n    \n    // Map inspectorId to mondayInspectorId for backward compatibility\n    const createData: CreateInspectionData = {\n      ...data,\n      mondayInspectorId: data.mondayInspectorId || data.inspectorId\n    }\n    \n    const inspection = await inspectionRepo.createInspection(createData)\n    \n    return NextResponse.json(inspection)\n  } catch (error) {\n    console.error('Create inspection error:', error)\n    return NextResponse.json(\n      { error: 'Failed to create inspection' },\n      { status: 500 }\n    )\n  }\n}",
-  "functionResolutionConfidence": "high"
-}

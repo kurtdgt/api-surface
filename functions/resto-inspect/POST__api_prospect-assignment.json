@@ -1,8 +1,0 @@
-{
-  "method": "POST",
-  "url": "/api/prospect-assignment",
-  "functionName": "POST",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/prospect-assignment/route.ts",
-  "functionCode": "async function POST(request: AuthenticatedRequest) {\n  try {\n    const body = await request.json()\n    const { prospectId, mondayUserId } = body\n\n    if (!prospectId || !mondayUserId) {\n      return NextResponse.json(\n        { success: false, error: 'prospectId and mondayUserId are required' },\n        { status: 400 }\n      )\n    }\n\n    // Check if assignment already exists\n    const existingAssignment = await prospectAssignmentRepo.getAssignment(prospectId, mondayUserId)\n    if (existingAssignment) {\n      return NextResponse.json(\n        { success: false, error: 'Assignment already exists' },\n        { status: 409 }\n      )\n    }\n\n    // Create new assignment\n    const assignment = await prospectAssignmentRepo.createAssignment({\n      prospectId,\n      mondayUserId\n    })\n\n    return NextResponse.json({\n      success: true,\n      assignment: assignment\n    })\n  } catch (error) {\n    console.error('Error creating prospect assignment:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to create assignment' },\n      { status: 500 }\n    )\n  }\n}",
-  "functionResolutionConfidence": "high"
-}

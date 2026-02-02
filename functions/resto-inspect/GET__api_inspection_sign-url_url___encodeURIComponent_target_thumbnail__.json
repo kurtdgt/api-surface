@@ -1,8 +1,0 @@
-{
-  "method": "GET",
-  "url": "/api/inspection/sign-url?url=${encodeURIComponent(target.thumbnail)}",
-  "functionName": "GET",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/inspection/sign-url/route.ts",
-  "functionCode": "export async function GET (request: NextRequest) {\n  try {\n    const { searchParams } = new URL(request.url)\n    const url = searchParams.get('url')\n    const key = searchParams.get('key')\n\n    if (!url && !key) {\n      return NextResponse.json({ error: 'url or key is required' }, { status: 400 })\n    }\n\n    const s3 = new S3Service()\n    const derived = key || (url ? deriveKeyFromUrl(url) : null)\n    if (!derived) {\n      return NextResponse.json({ error: 'Unable to derive key' }, { status: 400 })\n    }\n    const signedUrl = await s3.getSignedUrl(derived)\n    return NextResponse.json({ url: signedUrl })\n  } catch (e) {\n    return NextResponse.json({ error: 'Failed to sign url' }, { status: 500 })\n  }\n}",
-  "functionResolutionConfidence": "high"
-}

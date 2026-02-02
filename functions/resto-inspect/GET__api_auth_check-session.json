@@ -1,8 +1,0 @@
-{
-  "method": "GET",
-  "url": "/api/auth/check-session",
-  "functionName": "GET",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/auth/check-session/route.ts",
-  "functionCode": "export const GET = withAuth(checkSessionHandler);",
-  "functionResolutionConfidence": "high"
-}

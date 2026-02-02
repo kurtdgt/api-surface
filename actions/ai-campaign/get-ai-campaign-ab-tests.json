@@ -1,0 +1,46 @@
+{
+  "serviceKey": "rm_playground_database",
+  "actionName": "get-ai-campaign-ab-tests-from-api-surface",
+  "displayName": "Get A/B Tests",
+  "description": "Fetches all A/B test campaigns with optional filtering by status and type. Returns detailed metrics for each variant including open rates, click rates, and statistical significance.",
+  "language": "javascript",
+  "functionCode": "async function executeAction(payload, context) {\n  const { Pool } = require('pg');\n  const pool = new Pool({ connectionString: context.systemParams.PLAYGROUND_DATABASE_URL });\n\n  try {\n    const status = payload.status;\n    const type = payload.type;\n\n    // Fetch campaigns with A/B testing enabled\n    const campaignsResult = await pool.query(\n      `SELECT id, name, type, status, \"abTestConfig\", \"abTestExecution\", \"abTestResults\", \"sentAt\", \"createdAt\"\n       FROM \"Campaign\"\n       WHERE \"isABTest\" = true\n       ORDER BY \"createdAt\" DESC`\n    );\n\n    const campaigns = campaignsResult.rows;\n\n    // Helper function to calculate variant metrics\n    function calculateVariantMetrics(campaign, variant, abTestExecution) {\n      const execution = abTestExecution || {};\n      const variantData = execution[`variant${variant}`] || {};\n      \n      const sent = variantData.sent || 0;\n      const opened = variantData.opened || 0;\n      const clicked = variantData.clicked || 0;\n      const converted = variantData.converted || 0;\n      const bounced = variantData.bounced || 0;\n      const unsubscribed = variantData.unsubscribed || 0;\n\n      return {\n        sent,\n        opened,\n        clicked,\n        converted,\n        bounced,\n        unsubscribed,\n        openRate: sent > 0 ? ((opened / sent) * 100).toFixed(2) : '0.00',\n        clickRate: sent > 0 ? ((clicked / sent) * 100).toFixed(2) : '0.00',\n        conversionRate: sent > 0 ? ((converted / sent) * 100).toFixed(2) : '0.00',\n        bounceRate: sent > 0 ? ((bounced / sent) * 100).toFixed(2) : '0.00',\n        unsubscribeRate: sent > 0 ? ((unsubscribed / sent) * 100).toFixed(2) : '0.00'\n      };\n    }\n\n    // Helper function to calculate statistics\n    function calculateStatistics(variantAMetrics, variantBMetrics, abTestResults) {\n      const results = abTestResults || {};\n      \n      // Simple statistical calculation\n      const aRate = parseFloat(variantAMetrics.openRate);\n      const bRate = parseFloat(variantBMetrics.openRate);\n      const diff = Math.abs(aRate - bRate);\n      \n      let confidenceLevel = 0;\n      let significance = false;\n      let winner = null;\n\n      if (variantAMetrics.sent > 30 && variantBMetrics.sent > 30) {\n        if (diff > 5) {\n          confidenceLevel = 95;\n          significance = true;\n          winner = aRate > bRate ? 'A' : 'B';\n        } else if (diff > 2) {\n          confidenceLevel = 80;\n          significance = false;\n        }\n      }\n\n      if (results.winner) {\n        winner = results.winner;\n      }\n      if (results.confidenceLevel) {\n        confidenceLevel = results.confidenceLevel;\n      }\n      if (results.significance !== undefined) {\n        significance = results.significance;\n      }\n\n      return { confidenceLevel, significance, winner };\n    }\n\n    // Transform campaigns into A/B test format\n    const abTests = campaigns.map((campaign) => {\n      const abTestConfig = campaign.abTestConfig || {};\n      const abTestExecution = campaign.abTestExecution || {};\n      const abTestResults = campaign.abTestResults || {};\n\n      // Calculate metrics for each variant\n      const variantAMetrics = calculateVariantMetrics(campaign, 'A', abTestExecution);\n      const variantBMetrics = calculateVariantMetrics(campaign, 'B', abTestExecution);\n\n      // Determine status based on campaign status\n      let testStatus = 'draft';\n      if (campaign.status === 'COMPLETED') {\n        testStatus = 'completed';\n      } else if (campaign.status === 'SENDING') {\n        testStatus = 'running';\n      } else if (campaign.status === 'SCHEDULED') {\n        testStatus = 'paused';\n      }\n\n      // Calculate confidence level and significance\n      const { confidenceLevel, significance, winner } = calculateStatistics(\n        variantAMetrics,\n        variantBMetrics,\n        abTestResults\n      );\n\n      const startDate = campaign.sentAt\n        ? new Date(campaign.sentAt).toISOString().split('T')[0]\n        : new Date(campaign.createdAt).toISOString().split('T')[0];\n\n      let endDate = undefined;\n      if (campaign.status === 'COMPLETED' && campaign.sentAt) {\n        const testDuration = abTestConfig.testDuration || 24;\n        endDate = new Date(\n          new Date(campaign.sentAt).getTime() + testDuration * 60 * 60 * 1000\n        ).toISOString().split('T')[0];\n      }\n\n      const variants = abTestConfig.variants || {};\n      const variantA = variants.variantA || {};\n      const variantB = variants.variantB || {};\n\n      return {\n        id: campaign.id,\n        name: campaign.name,\n        type: campaign.type.toLowerCase(),\n        testType: abTestConfig.testType || 'subject',\n        status: testStatus,\n        startDate,\n        endDate,\n        duration: abTestConfig.testDuration || 24,\n        totalSent: 0,\n        variants: {\n          variantA: {\n            name: variantA.name || 'Variant A',\n            content: variantA.content || '',\n            ...variantAMetrics\n          },\n          variantB: {\n            name: variantB.name || 'Variant B',\n            content: variantB.content || '',\n            ...variantBMetrics\n          }\n        },\n        winner,\n        confidenceLevel,\n        significance,\n        createdBy: 'Campaign Manager',\n        tags: [\n          `${campaign.type.toLowerCase()}-campaigns`,\n          `${abTestConfig.testType || 'subject'}-test`\n        ]\n      };\n    });\n\n    // Apply filters\n    const filteredTests = abTests.filter((test) => {\n      if (status && status !== 'all' && test.status !== status) {\n        return false;\n      }\n      if (type && type !== 'all' && test.type !== type) {\n        return false;\n      }\n      return true;\n    });\n\n    // Update totalSent for each test\n    filteredTests.forEach((test) => {\n      test.totalSent = test.variants.variantA.sent + test.variants.variantB.sent;\n    });\n\n    await pool.end();\n\n    return {\n      success: true,\n      data: {\n        tests: filteredTests,\n        total: filteredTests.length\n      }\n    };\n  } catch (error) {\n    context.logger.error('Error fetching A/B tests:', error);\n    await pool.end();\n    return {\n      success: false,\n      error: 'Failed to fetch A/B tests'\n    };\n  }\n}",
+  "httpMethod": "GET",
+  "systemParameters": ["PLAYGROUND_DATABASE_URL"],
+  "payloadSchema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "description": "Filter by test status (running, completed, paused, draft, all)"
+      },
+      "type": {
+        "type": "string",
+        "description": "Filter by test type (email, sms, all)"
+      }
+    },
+    "required": []
+  },
+  "responseSchema": {
+    "type": "object",
+    "properties": {
+      "success": {
+        "type": "boolean"
+      },
+      "data": {
+        "type": "object",
+        "properties": {
+          "tests": {
+            "type": "array"
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      },
+      "error": {
+        "type": "string"
+      }
+    }
+  }
+}

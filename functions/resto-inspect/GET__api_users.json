@@ -1,8 +1,0 @@
-{
-  "method": "GET",
-  "url": "/api/users",
-  "functionName": "GET",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/users/route.ts",
-  "functionCode": "export async function GET() {\n  try {\n    const users = await mondayUserOperations.getAllUsers()\n    \n    // Transform users to a simpler format for the dropdown\n    const userOptions = users.map(user => ({\n      id: user.id,\n      name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || null,\n      email: user.email || null,\n      role: user.role || 'user'\n    }))\n\n    return NextResponse.json({\n      success: true,\n      users: userOptions\n    })\n  } catch (error) {\n    console.error('Error fetching users:', error)\n    return NextResponse.json(\n      { success: false, error: 'Failed to fetch users' },\n      { status: 500 }\n    )\n  }\n}",
-  "functionResolutionConfidence": "high"
-}

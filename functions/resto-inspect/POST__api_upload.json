@@ -1,8 +1,0 @@
-{
-  "method": "POST",
-  "url": "/api/upload",
-  "functionName": "POST",
-  "functionFile": "/Users/kurttimajo/dev/restoremasters/resto-inspect/src/app/api/upload/route.ts",
-  "functionCode": "export async function POST(request: NextRequest) {\n  try {\n    const formData = await request.formData()\n    const file = formData.get('file') as File\n    \n    if (!file) {\n      return NextResponse.json(\n        { error: 'No file provided' },\n        { status: 400 }\n      )\n    }\n\n    // Convert File to Buffer\n    const bytes = await file.arrayBuffer()\n    const buffer = Buffer.from(bytes)\n\n    // Generate unique filename\n    const timestamp = Date.now()\n    const fileExtension = file.name.split('.').pop()\n    const fileName = `${timestamp}.${fileExtension}`\n    \n    // Determine file type for S3 key\n    const isVideo = file.type.startsWith('video/')\n    const fileType = isVideo ? 'videos' : 'photos'\n    const s3Key = `${fileType}/${fileName}`\n\n    // Upload to S3\n    const s3Service = new S3Service()\n    \n    const uploadResult = await s3Service.uploadFile(s3Key, buffer, file.type)\n    \n    // Get the public URL\n    const fileUrl = await s3Service.getSignedUrl(s3Key)\n\n    return NextResponse.json({\n      success: true,\n      fileUrl,\n      s3Key,\n      fileName: file.name,\n      fileSize: file.size,\n      fileType: file.type\n    })\n\n  } catch (error) {\n    console.error('Upload error:', error)\n    return NextResponse.json(\n      { error: 'Failed to upload file' },\n      { status: 500 }\n    )\n  }\n}",
-  "functionResolutionConfidence": "high"
-}
