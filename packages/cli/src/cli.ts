@@ -30,12 +30,12 @@ program
   .option(
     "--framework <type>",
     "Framework type: none, nextjs, react-native, react, generic",
-    "none",
+    "none"
   )
   .option("-o, --output <path>", "Output file path")
   .option(
     "--function-code-dir <path>",
-    "Write one JSON file per endpoint with function code(s) into this directory",
+    "Write one JSON file per endpoint with function code(s) into this directory"
   )
   .action(async (directory: string, options: ScanOptions) => {
     await handleScan(directory, options);
@@ -56,13 +56,13 @@ program
 program
   .command("dashboard")
   .description(
-    "Start the dashboard UI to view scan results, functions, actions, and run commands via buttons",
+    "Start the dashboard UI to view scan results, functions, actions, and run commands via buttons"
   )
   .option(
     "-p, --port <number>",
     "Port for the dashboard server",
     (v) => parseInt(v, 10),
-    3000,
+    3000
   )
   .option("--no-open", "Do not open the browser automatically")
   .action(async (options: { port: number; open?: boolean }) => {
@@ -78,13 +78,13 @@ program
   .description("View scan results in web viewer")
   .argument(
     "[scan-file]",
-    "Path to scan result JSON file (optional, uses latest if not specified)",
+    "Path to scan result JSON file (optional, uses latest if not specified)"
   )
   .option(
     "-p, --port <number>",
     "Port for web server",
     (val) => parseInt(val, 10),
-    3000,
+    3000
   )
   .action(async (scanFile: string | undefined, options: OpenOptions) => {
     await handleOpen(scanFile || "", options);
@@ -94,15 +94,15 @@ program
 program
   .command("validate-functions")
   .description(
-    "Validate API function JSON files (method, url). Use --fix to normalize formatting.",
+    "Validate API function JSON files (method, url). Use --fix to normalize formatting."
   )
   .argument(
     "<input-dir>",
-    "Directory containing API function JSON files (e.g. functions/resto-inspect)",
+    "Directory containing API function JSON files (e.g. functions/resto-inspect)"
   )
   .option(
     "--fix",
-    "Rewrite valid files with consistent JSON formatting (2-space indent)",
+    "Rewrite valid files with consistent JSON formatting (2-space indent)"
   )
   .action(async (inputDir: string, options: { fix?: boolean }) => {
     await handleValidateFunctions({
@@ -115,49 +115,70 @@ program
 program
   .command("upload-actions")
   .description(
-    "Upload action JSON files from a directory to the Railway action-generator API (create-simple)",
+    "Upload action JSON files from a directory to the Railway action-generator API (create-simple)"
   )
   .argument(
     "<input-dir>",
-    "Directory containing action JSON files (e.g. actions/resto-inspect)",
+    "Directory containing action JSON files (e.g. actions/resto-inspect)"
   )
   .option(
     "--url <url>",
-    "API URL (default: Railway production or RAILWAY_ACTION_URL env)",
+    "API URL (default: Railway production or RAILWAY_ACTION_URL env)"
   )
-  .action(async (inputDir: string, options: { url?: string }) => {
-    await handleUploadActions({
-      inputDir,
-      url: options.url,
-    });
-  });
+  .option(
+    "--files <list>",
+    "Comma-separated filenames to upload (default: all .json in directory)"
+  )
+  .option(
+    "--service-key <key>",
+    "Override serviceKey in each action JSON before uploading"
+  )
+  .action(
+    async (
+      inputDir: string,
+      options: { url?: string; files?: string; serviceKey?: string }
+    ) => {
+      const files = options.files
+        ? options.files
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+      await handleUploadActions({
+        inputDir,
+        url: options.url,
+        files: files?.length ? files : undefined,
+        serviceKeyOverride: options.serviceKey,
+      });
+    }
+  );
 
 // Actions command - generate action JSON from API function JSON using Claude or OpenAI
 program
   .command("actions")
   .description(
-    "Generate action JSON files from API function JSON (from scan --function-code-dir) using Claude (ANTHROPIC_API_KEY) or OpenAI (OPENAI_API_KEY)",
+    "Generate action JSON files from API function JSON (from scan --function-code-dir) using Claude (ANTHROPIC_API_KEY) or OpenAI (OPENAI_API_KEY)"
   )
   .argument(
     "<input-dir>",
-    "Directory containing API function JSON files (e.g. functions/resto-inspect)",
+    "Directory containing API function JSON files (e.g. functions/resto-inspect)"
   )
   .requiredOption(
     "-o, --output-dir <path>",
-    "Directory where action JSON files will be written",
+    "Directory where action JSON files will be written"
   )
   .option(
     "--service-key <key>",
-    "Default serviceKey for generated actions (e.g. rm_playground_database)",
+    "Default serviceKey for generated actions (e.g. rm_playground_database)"
   )
   .option("--env <path>", "Path to .env file (default: .env in cwd)")
   .option(
     "-c, --config <path>",
-    "Path to action.config.json (default: action.config.json in cwd). Use it to set defaultDatabaseUrl and defaultServiceKey.",
+    "Path to action.config.json (default: action.config.json in cwd). Use it to set defaultDatabaseUrl and defaultServiceKey."
   )
   .option(
     "--name <app-name>",
-    "App name to concatenate with action name (e.g. resto-inspect → get-resto-inspect-properties)",
+    "App name to concatenate with action name (e.g. resto-inspect → get-resto-inspect-properties)"
   )
   .action(
     async (
@@ -168,7 +189,7 @@ program
         env?: string;
         config?: string;
         name?: string;
-      },
+      }
     ) => {
       await handleActions({
         inputDir,
@@ -178,7 +199,7 @@ program
         envPath: options.env,
         configPath: options.config,
       });
-    },
+    }
   );
 
 // Parse arguments

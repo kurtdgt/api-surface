@@ -429,6 +429,8 @@ export async function startDashboardServer(
           serviceKey?: string;
           fix?: boolean;
           uploadUrl?: string;
+          uploadFiles?: string[];
+          uploadServiceKey?: string;
         };
         const { command } = params;
         let args: string[] = [];
@@ -460,6 +462,10 @@ export async function startDashboardServer(
           const inputDir = params.actionsOutputDir || "actions/resto-inspect";
           args = ["upload-actions", inputDir];
           if (params.uploadUrl) args.push("--url", params.uploadUrl);
+          if (params.uploadServiceKey?.trim())
+            args.push("--service-key", params.uploadServiceKey.trim());
+          if (params.uploadFiles?.length)
+            args.push("--files", params.uploadFiles.join(","));
         } else {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "Unknown command", command }));
@@ -590,6 +596,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .accordion-head-inner { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
     .accordion-head-inner::before { content: '▶'; font-size: 10px; color: var(--arrow); transition: transform 0.2s; flex-shrink: 0; }
     .accordion-item.expanded .accordion-head-inner::before { transform: rotate(90deg); }
+    .accordion-head .action-upload-cb { margin-right: 10px; flex-shrink: 0; cursor: pointer; }
     .btn-icon { padding: 6px; border: none; border-radius: 6px; background: transparent; color: var(--arrow); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .btn-icon:hover { background: var(--hover-strong); color: #ef4444; }
     .btn-icon svg { width: 16px; height: 16px; }
@@ -700,9 +707,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             <label for="serviceKey">Service key</label>
             <input type="text" id="serviceKey" value="rm_playground_database" placeholder="e.g. rm_playground_database" title="serviceKey for generated actions" />
           </div>
+          <div class="input-group">
+            <label for="uploadServiceKey">Service key for upload</label>
+            <input type="text" id="uploadServiceKey" value="" placeholder="e.g. rm_playground_database (optional)" title="Override serviceKey for selected actions when uploading" />
+          </div>
         </div>
       </div>
-      <div class="panel-header"><h2>Action JSON files</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="actions-bar"><button type="button" class="btn btn-primary" id="runActions">Generate actions</button><button type="button" class="btn btn-primary" id="runUpload">Upload actions</button><button type="button" class="btn btn-danger hidden" id="runStopActions">Stop</button></div><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button></div></div>
+      <div class="panel-header"><h2>Action JSON files</h2><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><div class="actions-bar"><button type="button" class="btn btn-primary" id="runActions">Generate actions</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-danger hidden" id="runStopActions">Stop</button></div><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button></div></div>
       <div class="panel-body"><ul class="accordion" id="actionsList"></ul></div>
     </div>
 
@@ -745,6 +756,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     const actionsDir = () => document.getElementById('actionsDir').value;
     const appName = () => document.getElementById('appName').value;
     const serviceKey = () => document.getElementById('serviceKey').value.trim();
+    const uploadServiceKey = () => document.getElementById('uploadServiceKey').value.trim();
 
     document.querySelectorAll('.tabs button').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -896,14 +908,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           return;
         }
         const trashSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
-        list.innerHTML = data.files.map(f => '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><span class="accordion-head-inner">' + escapeHtml(f) + '</span><button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><pre class="json-preview"></pre></div></li>').join('');
+        list.innerHTML = data.files.map(f => '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><input type="checkbox" class="action-upload-cb" data-file="' + escapeHtml(f) + '" title="Select for upload" /><span class="accordion-head-inner">' + escapeHtml(f) + '</span><button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><pre class="json-preview"></pre></div></li>').join('');
         list.querySelectorAll('.accordion-item').forEach(item => {
           const head = item.querySelector('.accordion-head');
           const inner = item.querySelector('.accordion-head-inner');
           const body = item.querySelector('.accordion-body .json-preview');
           const file = head.dataset.file;
           const deleteBtn = item.querySelector('.btn-delete-file');
+          const cb = item.querySelector('.action-upload-cb');
           if (!file) return;
+          if (cb) cb.addEventListener('click', (e) => e.stopPropagation());
           inner.addEventListener('click', async () => {
             const wasExpanded = item.classList.contains('expanded');
             list.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('expanded'));
@@ -1065,10 +1079,25 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       appName: appName(),
       serviceKey: serviceKey() || undefined
     }));
-    document.getElementById('runUpload').addEventListener('click', () => runCommand({
-      command: 'upload-actions',
-      actionsOutputDir: actionsDir()
-    }));
+    document.getElementById('runUpload').addEventListener('click', () => {
+      const selected = Array.from(document.querySelectorAll('#actionsList .action-upload-cb:checked')).map(el => el.getAttribute('data-file')).filter(Boolean);
+      if (!selected.length) {
+        alert('Select at least one action to upload.');
+        return;
+      }
+      runCommand({
+        command: 'upload-actions',
+        actionsOutputDir: actionsDir(),
+        uploadFiles: selected,
+        uploadServiceKey: uploadServiceKey() || undefined
+      });
+    });
+    document.getElementById('selectAllActions').addEventListener('click', () => {
+      document.querySelectorAll('#actionsList .action-upload-cb').forEach(cb => { cb.checked = true; });
+    });
+    document.getElementById('selectNoneActions').addEventListener('click', () => {
+      document.querySelectorAll('#actionsList .action-upload-cb').forEach(cb => { cb.checked = false; });
+    });
 
     loadScan();
     loadResults();

@@ -14,33 +14,53 @@ export interface UploadActionsOptions {
   inputDir: string;
   /** API URL (default: Railway production URL, or RAILWAY_ACTION_URL env) */
   url?: string;
+  /** If set, only upload these filenames (must be .json in inputDir) */
+  files?: string[];
+  /** If set, override serviceKey in each action JSON before uploading */
+  serviceKeyOverride?: string;
 }
 
 export async function handleUploadActions(
-  options: UploadActionsOptions,
+  options: UploadActionsOptions
 ): Promise<void> {
   const inputDir = path.resolve(options.inputDir);
   const baseUrl =
     options.url ?? process.env.RAILWAY_ACTION_URL ?? DEFAULT_RAILWAY_URL;
 
-  let entries: Array<{ name: string; isFile: () => boolean }>;
-  try {
-    entries = await fs.readdir(inputDir, { withFileTypes: true });
-  } catch (e) {
-    console.error(`Error: Cannot read directory ${inputDir}:`, e);
-    process.exit(1);
+  let jsonFiles: string[];
+  if (options.files?.length) {
+    jsonFiles = options.files
+      .filter((f) => f.endsWith(".json") && !f.includes(".."))
+      .sort();
+    if (jsonFiles.length === 0) {
+      console.error("Error: No valid .json filenames provided");
+      process.exit(1);
+    }
+  } else {
+    let entries: Array<{ name: string; isFile: () => boolean }>;
+    try {
+      entries = await fs.readdir(inputDir, { withFileTypes: true });
+    } catch (e) {
+      console.error(`Error: Cannot read directory ${inputDir}:`, e);
+      process.exit(1);
+    }
+    jsonFiles = entries
+      .filter((e) => e.isFile() && e.name.endsWith(".json"))
+      .map((e) => e.name)
+      .sort();
   }
-
-  const jsonFiles = entries
-    .filter((e) => e.isFile() && e.name.endsWith(".json"))
-    .map((e) => e.name)
-    .sort();
 
   if (jsonFiles.length === 0) {
     console.log(`No JSON files found in ${inputDir}`);
     return;
   }
 
+  const serviceKeyOverride = options.serviceKeyOverride?.trim();
+  if (serviceKeyOverride) {
+    console.log(
+      `Overriding serviceKey to "${serviceKeyOverride}" for this batch.`
+    );
+  }
   console.log(`Uploading ${jsonFiles.length} action(s) to ${baseUrl}...`);
 
   let ok = 0;
@@ -57,17 +77,32 @@ export async function handleUploadActions(
       continue;
     }
 
+    let body = raw;
+    if (serviceKeyOverride) {
+      try {
+        const obj = JSON.parse(raw) as Record<string, unknown>;
+        obj.serviceKey = serviceKeyOverride;
+        body = JSON.stringify(obj);
+      } catch (e) {
+        console.error(`  ✗ ${name}: invalid JSON, skipping`);
+        err++;
+        continue;
+      }
+    }
+
     try {
       const response = await fetch(baseUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: raw,
+        body,
       });
 
       if (!response.ok) {
         const text = await response.text();
         console.error(
-          `  ✗ ${name}: ${response.status} ${response.statusText}${text ? ` — ${text.slice(0, 120)}` : ""}`,
+          `  ✗ ${name}: ${response.status} ${response.statusText}${
+            text ? ` — ${text.slice(0, 120)}` : ""
+          }`
         );
         err++;
         continue;
