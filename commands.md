@@ -36,6 +36,9 @@ api-surface scan <directory> [options]
 | `--framework <type>`         | `none` \| `nextjs` \| `react-native` \| `react` \| `generic` (default: `none`). |
 | `-o, --output <path>`        | Write normalized scan result JSON to this file.                                 |
 | `--function-code-dir <path>` | Write one JSON per endpoint (method, url, functionCode) into this directory.    |
+| `--api-routes-dir <path>`    | Directory to scan for API route handlers, relative to scanned root (e.g. `src/app/api`). Overrides config. |
+
+When writing results (`-o`), the output JSON includes a **`requiredSystemParams`** array: environment variable names (e.g. `process.env.DATABASE_URL`) inferred from API route handler code, with optional short descriptions. If `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is set, the CLI uses AI to generate one-line descriptions for each parameter; otherwise only names are included.
 
 **Examples**
 
@@ -43,6 +46,7 @@ api-surface scan <directory> [options]
 api-surface scan .
 api-surface scan ./src --framework nextjs -o results.json
 api-surface scan ./src -o results.json --function-code-dir functions/resto-inspect
+api-surface scan . --api-routes-dir src/app/api -o results.json --function-code-dir functions/resto-inspect
 ```
 
 ---

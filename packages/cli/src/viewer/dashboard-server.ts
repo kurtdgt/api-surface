@@ -13,6 +13,10 @@ import { suggestTestPayload } from "../commands/suggest-test-payload";
 const EXECUTE_BASE_URL =
   "https://refreshing-amazement-production.up.railway.app/api/v2/execute";
 
+/** Fixed URL for adding system parameters (admin API). */
+const SYSTEM_PARAMETERS_API_URL =
+  "https://refreshing-amazement-production.up.railway.app/api/admin/system-parameters";
+
 const DEFAULT_PORT = 3000;
 
 /** Resolve path relative to cwd (server working directory). */
@@ -128,7 +132,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/functions/list") {
-        const dir = resolvePath(cwd, query.dir || "functions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "functions/");
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           const files = entries
@@ -151,7 +155,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/functions/file" && req.method !== "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "functions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "functions/");
         const file = query.file;
         if (!file || file.includes("..")) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -176,7 +180,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/actions/list") {
-        const dir = resolvePath(cwd, query.dir || "actions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "actions/");
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           const files = entries
@@ -199,7 +203,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/actions/endpoints") {
-        const dir = resolvePath(cwd, query.dir || "actions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "actions/");
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           const files = entries
@@ -247,7 +251,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/actions/file" && req.method !== "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "actions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "actions/");
         const file = query.file;
         if (!file || file.includes("..")) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -272,7 +276,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/functions/file" && req.method === "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "functions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "functions/");
         const file = query.file;
         if (!file || file.includes("..") || !file.endsWith(".json")) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -297,7 +301,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/functions/all" && req.method === "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "functions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "functions/");
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           const files = entries
@@ -321,7 +325,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/actions/file" && req.method === "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "actions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "actions/");
         const file = query.file;
         if (!file || file.includes("..") || !file.endsWith(".json")) {
           res.writeHead(400, { "Content-Type": "application/json" });
@@ -346,7 +350,7 @@ export async function startDashboardServer(
       }
 
       if (pathname === "/api/actions/all" && req.method === "DELETE") {
-        const dir = resolvePath(cwd, query.dir || "actions/resto-inspect");
+        const dir = resolvePath(cwd, query.dir || "actions/");
         try {
           const entries = await fs.readdir(dir, { withFileTypes: true });
           const files = entries
@@ -364,6 +368,118 @@ export async function startDashboardServer(
               error: "Delete all failed",
               message: e instanceof Error ? e.message : String(e),
             })
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/actions/bulk-update-service-key" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        let params: { dir?: string; files?: string[]; serviceKey?: string };
+        try {
+          params = JSON.parse(body || "{}");
+        } catch {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+          return;
+        }
+        const dir = resolvePath(cwd, params.dir || "actions/");
+        const files = Array.isArray(params.files) ? params.files : [];
+        const serviceKey = typeof params.serviceKey === "string" ? params.serviceKey.trim() : "";
+        if (!serviceKey) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "serviceKey is required" }));
+          return;
+        }
+        if (files.length === 0) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "At least one file is required" }));
+          return;
+        }
+        const failed: string[] = [];
+        let updated = 0;
+        for (const file of files) {
+          if (!file || file.includes("..") || !file.endsWith(".json")) {
+            failed.push(file || "(empty)");
+            continue;
+          }
+          const filePath = path.join(dir, file);
+          try {
+            const raw = await fs.readFile(filePath, "utf-8");
+            const obj = JSON.parse(raw) as Record<string, unknown>;
+            obj.serviceKey = serviceKey;
+            await fs.writeFile(filePath, JSON.stringify(obj, null, 2), "utf-8");
+            updated++;
+          } catch {
+            failed.push(file);
+          }
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ updated, failed: failed.length ? failed : undefined }));
+        return;
+      }
+
+      if (pathname === "/api/proxy/system-parameters" && req.method === "GET") {
+        try {
+          const proxyRes = await fetch(SYSTEM_PARAMETERS_API_URL);
+          const text = await proxyRes.text();
+          res.writeHead(proxyRes.status, { "Content-Type": "application/json" });
+          res.end(text || "{}");
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: "Failed to fetch system parameters",
+              message: e instanceof Error ? e.message : String(e),
+            }),
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/proxy/system-parameters" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        let params: { payload?: Record<string, unknown> };
+        try {
+          params = JSON.parse(body || "{}");
+        } catch {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON body" }));
+          return;
+        }
+        const payload = params.payload && typeof params.payload === "object" ? params.payload : null;
+        if (!payload) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "payload is required" }));
+          return;
+        }
+        const targetUrl = SYSTEM_PARAMETERS_API_URL;
+        try {
+          const proxyRes = await fetch(targetUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const text = await proxyRes.text();
+          let jsonBody: unknown = { ok: proxyRes.ok };
+          if (text) {
+            try {
+              jsonBody = JSON.parse(text);
+            } catch {
+              jsonBody = { ok: proxyRes.ok, body: text };
+            }
+          }
+          res.writeHead(proxyRes.status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(jsonBody));
+        } catch (e) {
+          res.writeHead(502, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: "Proxy request failed",
+              message: e instanceof Error ? e.message : String(e),
+            }),
           );
         }
         return;
@@ -559,6 +675,7 @@ export async function startDashboardServer(
           scanDir?: string;
           outputPath?: string;
           functionCodeDir?: string;
+          apiRoutesDir?: string;
           functionsDir?: string;
           actionsInputDir?: string;
           actionsOutputDir?: string;
@@ -575,7 +692,7 @@ export async function startDashboardServer(
           const scanDir = params.scanDir || ".";
           const outputPath = params.outputPath || "results/restoinspect.json";
           const functionCodeDir =
-            params.functionCodeDir || "functions/resto-inspect";
+            params.functionCodeDir || "functions/";
           args = [
             "scan",
             scanDir,
@@ -584,13 +701,16 @@ export async function startDashboardServer(
             "--function-code-dir",
             functionCodeDir,
           ];
+          if (params.apiRoutesDir?.trim()) {
+            args.push("--api-routes-dir", params.apiRoutesDir.trim());
+          }
         } else if (command === "validate-functions") {
-          const inputDir = params.functionsDir || "functions/resto-inspect";
+          const inputDir = params.functionsDir || "functions/";
           args = ["validate-functions", inputDir];
           if (params.fix) args.push("--fix");
         } else if (command === "actions") {
-          const inputDir = params.actionsInputDir || "functions/resto-inspect";
-          const outputDir = params.actionsOutputDir || "actions/resto-inspect";
+          const inputDir = params.actionsInputDir || "functions/";
+          const outputDir = params.actionsOutputDir || "actions/";
           args = ["actions", inputDir, "-o", outputDir];
           if (params.serviceKey?.trim())
             args.push("--service-key", params.serviceKey.trim());
@@ -602,7 +722,7 @@ export async function startDashboardServer(
             args.push("--functions", params.actionFunctionFiles.join(","));
           }
         } else if (command === "upload-actions") {
-          const inputDir = params.actionsOutputDir || "actions/resto-inspect";
+          const inputDir = params.actionsOutputDir || "actions/";
           args = ["upload-actions", inputDir];
           if (params.uploadUrl) args.push("--url", params.uploadUrl);
           if (params.uploadFiles?.length)
@@ -783,6 +903,19 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .input-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
     .input-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin: 0; }
     .input-group input { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); width: 100%; font-size: 13px; transition: background 0.2s, border-color 0.2s, color 0.2s; box-sizing: border-box; }
+    .params-list-ul { list-style: none; margin: 0; padding: 0; }
+    .params-item { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .params-item:last-child { border-bottom: none; }
+    .params-name { font-family: ui-monospace, monospace; font-size: 14px; font-weight: 600; color: var(--text); }
+    .params-desc { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+    .params-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 20px; }
+    .params-form-grid .input-group.full-width { grid-column: 1 / -1; }
+    .params-checkboxes { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+    .params-checkboxes label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; cursor: pointer; }
+    .params-form-message { font-size: 13px; margin-left: 8px; }
+    .params-form-message.success { color: #22c55e; }
+    .params-form-message.error { color: #ef4444; }
+    .input-group select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 13px; width: 100%; max-width: 280px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -797,6 +930,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     <div class="tabs">
       <button type="button" class="active" data-tab="scan">Scan</button>
       <button type="button" data-tab="results">Results</button>
+      <button type="button" data-tab="params">Params</button>
       <button type="button" data-tab="functions">Functions</button>
       <button type="button" data-tab="actions">Actions</button>
       <button type="button" data-tab="test">Test</button>
@@ -809,7 +943,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         <div class="inputs">
           <div class="input-group">
             <label for="scanDir">Repo to scan</label>
-            <input type="text" id="scanDir" value="." placeholder="e.g. . or ./src" title="Directory to scan for API calls" />
+            <input type="text" id="scanDir" value="/Users/kurttimajo/dev/restoremasters" placeholder="e.g. /repo-name" title="Directory to scan for API calls" />
+          </div>
+          <div class="input-group">
+            <label for="apiRoutesDir">API routes dir</label>
+            <input type="text" id="apiRoutesDir" value="src/app/api" placeholder="e.g. src/app/api" title="Directory to scan for API route handlers, relative to repo (overrides config)" />
           </div>
           <div class="input-group">
             <label for="scanOutputPath">Scan output file</label>
@@ -835,20 +973,76 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       <div class="panel-body"><ul class="accordion" id="resultsList"></ul></div>
     </div>
 
+    <div id="panel-params" class="panel">
+      <div class="panel-config">
+        <div class="panel-config-title">Display source</div>
+        <div class="inputs">
+          <div class="input-group">
+            <label for="paramsSource">Source</label>
+            <select id="paramsSource" title="Where to load the system parameters list from">
+              <option value="scan">Scan result file</option>
+              <option value="api">System (API)</option>
+            </select>
+          </div>
+          <div class="input-group" id="paramsScanPathGroup">
+            <label for="paramsScanPath">Scan result file path</label>
+            <input type="text" id="paramsScanPath" value="results/" placeholder="Uses Scan output file from Scan tab if empty" title="Path to scan result JSON (optional when using Scan output file)" />
+          </div>
+        </div>
+        <div class="panel-config-title">Add system parameter</div>
+        <div class="params-form-grid">
+          <div class="input-group">
+            <label for="paramServiceKey">serviceKey</label>
+            <input type="text" id="paramServiceKey" placeholder="e.g. monday" required />
+          </div>
+          <div class="input-group">
+            <label for="paramParamKey">paramKey</label>
+            <input type="text" id="paramParamKey" placeholder="e.g. MONDAY_API_KEY" required />
+          </div>
+          <div class="input-group">
+            <label for="paramParamValue">paramValue</label>
+            <input type="text" id="paramParamValue" placeholder="your-api-key-here" />
+          </div>
+          <div class="input-group">
+            <label for="paramDisplayName">displayName</label>
+            <input type="text" id="paramDisplayName" placeholder="e.g. Monday.com API Key" />
+          </div>
+          <div class="input-group">
+            <label for="paramDescription">description</label>
+            <input type="text" id="paramDescription" placeholder="e.g. API key for Monday.com authentication" />
+          </div>
+          <div class="input-group">
+            <label for="paramCategory">category</label>
+            <input type="text" id="paramCategory" placeholder="e.g. authentication" />
+          </div>
+          <div class="input-group params-checkboxes">
+            <label><input type="checkbox" id="paramIsRequired" /> isRequired</label>
+            <label><input type="checkbox" id="paramIsEncrypted" /> isEncrypted</label>
+          </div>
+        </div>
+        <div class="actions-bar" style="margin-top:12px;">
+          <button type="button" class="btn btn-primary" id="paramSubmit">Add system parameter</button>
+          <span id="paramFormMessage" class="params-form-message"></span>
+        </div>
+      </div>
+      <div class="panel-header"><h2>System parameters</h2><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshParams">Refresh</button></div></div>
+      <div class="panel-body"><div id="paramsList" class="params-list">Load scan result to show required system parameters. Uses the Scan output file path from the Scan tab.</div></div>
+    </div>
+
     <div id="panel-functions" class="panel">
       <div class="panel-config">
         <div class="panel-config-title">Functions directory</div>
         <div class="inputs">
           <div class="input-group">
             <label for="functionsDir">Functions dir</label>
-            <input type="text" id="functionsDir" value="functions/resto-inspect" title="Directory containing function JSON files (input for validate & generate actions)" />
+            <input type="text" id="functionsDir" value="functions/" placeholder="e.g. functions/repo-name" title="Directory containing function JSON files (input for validate & generate actions)" />
           </div>
         </div>
         <div class="panel-config-title">Generate actions</div>
         <div class="inputs">
           <div class="input-group">
             <label for="actionsDir">Actions output dir</label>
-            <input type="text" id="actionsDir" value="actions/resto-inspect" title="Output directory for generated action JSON files" />
+            <input type="text" id="actionsDir" value="actions/" placeholder="e.g. actions/repo-name" title="Output directory for generated action JSON files" />
           </div>
           <div class="input-group">
             <label for="appName">App name</label>
@@ -865,7 +1059,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     </div>
 
     <div id="panel-actions" class="panel">
-      <div class="panel-header"><h2>Action JSON files</h2><div class="header-actions-wrap"><div class="actions-group"><span class="actions-group-label">Actions</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button></div></div><div class="actions-group"><span class="actions-group-label">Upload</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button></div></div></div></div>
+      <div class="panel-config">
+        <div class="panel-config-title">Source</div>
+        <div class="inputs">
+          <div class="input-group">
+            <label for="actionsListDir">Actions dir</label>
+            <input type="text" id="actionsListDir" value="actions/" placeholder="e.g. actions/repo-name" title="Directory of action JSON files to display" />
+          </div>
+        </div>
+      </div>
+      <div class="panel-header"><h2>Action JSON files</h2><div class="header-actions-wrap"><div class="actions-group"><span class="actions-group-label">Actions</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button></div></div><div class="actions-group"><span class="actions-group-label">Upload</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button></div></div><div class="actions-group"><span class="actions-group-label">Update serviceKey</span><div class="actions-bar"><input type="text" id="bulkServiceKey" placeholder="e.g. rm_playground_database" title="New serviceKey for selected action files" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-size:13px;min-width:180px;" /><button type="button" class="btn btn-primary" id="bulkUpdateServiceKey">Update selected</button></div></div></div></div>
       <div class="panel-body"><ul class="accordion" id="actionsList"></ul></div>
     </div>
 
@@ -879,7 +1082,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div class="input-group">
             <label for="testActionsDir">Actions dir</label>
-            <input type="text" id="testActionsDir" value="actions/resto-inspect" title="Directory to load endpoints from" />
+            <input type="text" id="testActionsDir" value="actions/" placeholder="e.g. actions/repo-name" title="Directory to load endpoints from" />
           </div>
         </div>
       </div>
@@ -948,14 +1151,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     })();
 
     const scanDir = () => document.getElementById('scanDir').value.trim() || '.';
+    const apiRoutesDir = () => document.getElementById('apiRoutesDir').value.trim();
     const scanOutputPath = () => document.getElementById('scanOutputPath').value;
     const resultsDir = () => document.getElementById('resultsDir').value.trim() || 'results';
     const functionsDir = () => document.getElementById('functionsDir').value;
     const actionsDir = () => document.getElementById('actionsDir').value;
+    const actionsListDir = () => document.getElementById('actionsListDir').value.trim() || 'actions/';
     const appName = () => document.getElementById('appName').value;
     const serviceKey = () => document.getElementById('serviceKey').value.trim();
     const testBaseUrl = () => document.getElementById('testBaseUrl').value.trim().replace(/\\/$/, '');
-    const testActionsDir = () => document.getElementById('testActionsDir').value.trim() || 'actions/resto-inspect';
+    const testActionsDir = () => document.getElementById('testActionsDir').value.trim() || 'actions/';
 
     const TEST_STORAGE_KEY = 'dashboard-test-endpoints';
     function getTestEndpoints() {
@@ -999,6 +1204,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
         document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'params') loadParams();
       });
     });
 
@@ -1028,6 +1234,44 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         el.innerHTML = html;
       } catch (e) {
         el.innerHTML = '<div class="log-box error">' + escapeHtml(e.message) + '</div>';
+      }
+    }
+
+    function paramsSource() { return document.getElementById('paramsSource').value; }
+    function paramsScanPath() { const v = document.getElementById('paramsScanPath').value.trim(); return v || scanOutputPath(); }
+
+    async function loadParams() {
+      const container = document.getElementById('paramsList');
+      const source = paramsSource();
+      try {
+        if (source === 'api') {
+          const data = await api('/api/proxy/system-parameters');
+          const params = data.data && data.data.parameters ? data.data.parameters : [];
+          if (!params.length) {
+            container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No system parameters returned from the API.</p>';
+            return;
+          }
+          container.innerHTML = '<ul class="params-list-ul">' + params.map(p => {
+            const name = escapeHtml((p.serviceKey || '') + ' / ' + (p.paramKey || p.name || ''));
+            const desc = (p.displayName || p.description) ? '<div class="params-desc">' + escapeHtml([p.displayName, p.description].filter(Boolean).join(' — ')) + '</div>' : '';
+            return '<li class="params-item"><div class="params-name">' + name + '</div>' + desc + '</li>';
+          }).join('') + '</ul>';
+        } else {
+          const path = paramsScanPath();
+          const data = await api('/api/scan-result?path=' + encodeURIComponent(path));
+          const params = data.requiredSystemParams;
+          if (!params || !Array.isArray(params) || params.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No system parameters in this scan result. Run a scan with API route handlers that use process.env to populate this list.</p>';
+            return;
+          }
+          container.innerHTML = '<ul class="params-list-ul">' + params.map(p => {
+            const name = escapeHtml(p.name || '');
+            const desc = (p.description && p.description.trim()) ? '<div class="params-desc">' + escapeHtml(p.description.trim()) + '</div>' : '';
+            return '<li class="params-item"><div class="params-name">' + name + '</div>' + desc + '</li>';
+          }).join('') + '</ul>';
+        }
+      } catch (e) {
+        container.innerHTML = '<div class="log-box error">' + escapeHtml(e.message || String(e)) + '</div>';
       }
     }
 
@@ -1137,7 +1381,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     async function loadActions() {
       const list = document.getElementById('actionsList');
-      const dir = actionsDir();
+      const dir = actionsListDir();
       try {
         const data = await api('/api/actions/list?dir=' + encodeURIComponent(dir));
         if (!data.files.length) {
@@ -1239,12 +1483,12 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         }
         setRunLog(logText.trim() || '(no output)', code !== 0);
         if (code === 0) {
-          if (body.command === 'scan') { loadScan(); loadResults(); }
+          if (body.command === 'scan') { loadScan(); loadResults(); loadParams(); loadFunctions(); }
           if (body.command === 'validate-functions' || body.command === 'actions') loadFunctions();
           if (body.command === 'actions' || body.command === 'upload-actions') loadActions();
           if (body.command === 'upload-actions' && body.uploadFiles?.length) {
             try {
-              const data = await api('/api/actions/endpoints?dir=' + encodeURIComponent(actionsDir()));
+              const data = await api('/api/actions/endpoints?dir=' + encodeURIComponent(actionsListDir()));
               const selectedSet = new Set(body.uploadFiles);
               const uploaded = (data.endpoints || []).filter(ep => selectedSet.has(ep.file));
               const existing = getTestEndpoints();
@@ -1274,6 +1518,51 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     document.getElementById('refreshScan').addEventListener('click', loadScan);
     document.getElementById('refreshResults').addEventListener('click', loadResults);
+    document.getElementById('refreshParams').addEventListener('click', loadParams);
+    document.getElementById('paramsSource').addEventListener('change', () => {
+      const group = document.getElementById('paramsScanPathGroup');
+      group.style.display = paramsSource() === 'scan' ? '' : 'none';
+    });
+    (function initParamsSourceVisibility() {
+      document.getElementById('paramsScanPathGroup').style.display = paramsSource() === 'scan' ? '' : 'none';
+    })();
+    document.getElementById('paramSubmit').addEventListener('click', async () => {
+      const msgEl = document.getElementById('paramFormMessage');
+      msgEl.textContent = '';
+      msgEl.className = 'params-form-message';
+      const serviceKey = document.getElementById('paramServiceKey').value.trim();
+      const paramKey = document.getElementById('paramParamKey').value.trim();
+      if (!serviceKey) { msgEl.textContent = 'serviceKey is required.'; msgEl.classList.add('error'); return; }
+      if (!paramKey) { msgEl.textContent = 'paramKey is required.'; msgEl.classList.add('error'); return; }
+      const payload = {
+        serviceKey,
+        paramKey,
+        paramValue: document.getElementById('paramParamValue').value.trim() || undefined,
+        displayName: document.getElementById('paramDisplayName').value.trim() || undefined,
+        description: document.getElementById('paramDescription').value.trim() || undefined,
+        category: document.getElementById('paramCategory').value.trim() || undefined,
+        isRequired: document.getElementById('paramIsRequired').checked,
+        isEncrypted: document.getElementById('paramIsEncrypted').checked
+      };
+      try {
+        const res = await fetch('/api/proxy/system-parameters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          msgEl.textContent = data.message || data.error || res.statusText || 'Request failed';
+          msgEl.classList.add('error');
+          return;
+        }
+        msgEl.textContent = 'Added successfully.';
+        msgEl.classList.add('success');
+      } catch (e) {
+        msgEl.textContent = (e.message || e) + '';
+        msgEl.classList.add('error');
+      }
+    });
     document.getElementById('refreshActions').addEventListener('click', loadActions);
     document.getElementById('refreshFunctions').addEventListener('click', loadFunctions);
 
@@ -1298,9 +1587,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     });
     document.getElementById('deleteAllActions').addEventListener('click', async () => {
-      if (!confirm('Delete all action JSON files in ' + actionsDir() + '? This cannot be undone.')) return;
+      if (!confirm('Delete all action JSON files in ' + actionsListDir() + '? This cannot be undone.')) return;
       try {
-        const res = await fetch('/api/actions/all?dir=' + encodeURIComponent(actionsDir()), { method: 'DELETE' });
+        const res = await fetch('/api/actions/all?dir=' + encodeURIComponent(actionsListDir()), { method: 'DELETE' });
         if (!res.ok) throw new Error(await res.text());
         loadActions();
       } catch (err) {
@@ -1312,7 +1601,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       command: 'scan',
       scanDir: scanDir(),
       outputPath: scanOutputPath(),
-      functionCodeDir: functionsDir()
+      functionCodeDir: functionsDir(),
+      apiRoutesDir: apiRoutesDir() || undefined
     }));
     document.getElementById('runValidate').addEventListener('click', () => runCommand({
       command: 'validate-functions',
@@ -1344,7 +1634,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       }
       runCommand({
         command: 'upload-actions',
-        actionsOutputDir: actionsDir(),
+        actionsOutputDir: actionsListDir(),
         uploadFiles: selected
       });
     });
@@ -1353,6 +1643,38 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     });
     document.getElementById('selectNoneActions').addEventListener('click', () => {
       document.querySelectorAll('#actionsList .action-upload-cb').forEach(cb => { cb.checked = false; });
+    });
+    document.getElementById('bulkUpdateServiceKey').addEventListener('click', async () => {
+      const selected = Array.from(document.querySelectorAll('#actionsList .action-upload-cb:checked')).map(el => el.getAttribute('data-file')).filter(Boolean);
+      if (!selected.length) {
+        alert('Select at least one action file.');
+        return;
+      }
+      const serviceKey = document.getElementById('bulkServiceKey').value.trim();
+      if (!serviceKey) {
+        alert('Enter a serviceKey.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/actions/bulk-update-service-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dir: actionsListDir(), files: selected, serviceKey })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Update failed');
+          return;
+        }
+        loadActions();
+        if (data.failed && data.failed.length) {
+          alert('Updated ' + data.updated + ' file(s). Failed: ' + data.failed.join(', '));
+        } else {
+          alert('Updated ' + data.updated + ' file(s).');
+        }
+      } catch (e) {
+        alert('Update failed: ' + (e.message || e));
+      }
     });
 
     document.getElementById('testLoadFromDir').addEventListener('click', async () => {
@@ -1412,6 +1734,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     loadScan();
     loadResults();
+    loadParams();
     loadFunctions();
     loadActions();
     renderTestEndpoints();

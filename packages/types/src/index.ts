@@ -70,10 +70,18 @@ export interface ApiClientConfig {
   patterns?: string[]; // Import patterns to detect (e.g., ['axios', '@/lib/api'])
 }
 
+/** A required system parameter (e.g. env var) inferred from scanned code, with optional AI-generated description. */
+export interface RequiredSystemParam {
+  name: string;
+  description?: string;
+}
+
 export interface ScanResult {
   apiCalls: ApiCall[];
   filesScanned: number;
   errors: ScanError[];
+  /** Required system parameters (e.g. process.env vars) inferred from API route handlers, with optional descriptions. */
+  requiredSystemParams?: RequiredSystemParam[];
 }
 
 export interface ScanError {

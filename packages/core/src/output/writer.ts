@@ -5,6 +5,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import { ScanResult, ApiCall } from "@api-surface/types";
+import type { RequiredSystemParam } from "@api-surface/types";
 import { NormalizedResult, normalizeResults } from "./normalize";
 
 /**
@@ -58,6 +59,8 @@ export interface OutputData {
   endpoints: NormalizedResult["endpoints"];
   errors?: ScanResult["errors"];
   rawCalls?: ScanResult["apiCalls"];
+  /** Required system parameters (e.g. env vars) inferred from route handlers, with optional descriptions. */
+  requiredSystemParams?: RequiredSystemParam[];
 }
 
 /**
@@ -92,6 +95,14 @@ export async function writeResults(
   // Include raw calls if requested
   if (options.includeRaw) {
     outputData.rawCalls = scanResult.apiCalls;
+  }
+
+  // Include required system params when present (e.g. from scan + AI descriptions)
+  if (
+    scanResult.requiredSystemParams &&
+    scanResult.requiredSystemParams.length > 0
+  ) {
+    outputData.requiredSystemParams = scanResult.requiredSystemParams;
   }
 
   // Write to file

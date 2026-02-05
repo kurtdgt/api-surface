@@ -37,6 +37,10 @@ program
     "--function-code-dir <path>",
     "Write one JSON file per endpoint with function code(s) into this directory"
   )
+  .option(
+    "--api-routes-dir <path>",
+    "Directory to scan for API route handlers, relative to scanned root (e.g. src/app/api). Overrides config."
+  )
   .action(async (directory: string, options: ScanOptions) => {
     await handleScan(directory, options);
   });
