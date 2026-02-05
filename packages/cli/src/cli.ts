@@ -180,6 +180,10 @@ program
     "--name <app-name>",
     "App name to concatenate with action name (e.g. resto-inspect → get-resto-inspect-properties)"
   )
+  .option(
+    "--functions <list>",
+    "Comma-separated list of function JSON filenames to generate actions for (default: all in input dir)"
+  )
   .action(
     async (
       inputDir: string,
@@ -189,8 +193,15 @@ program
         env?: string;
         config?: string;
         name?: string;
+        functions?: string;
       }
     ) => {
+      const functionFiles = options.functions
+        ? options.functions
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
       await handleActions({
         inputDir,
         outputDir: options.outputDir,
@@ -198,6 +209,7 @@ program
         appName: options.name,
         envPath: options.env,
         configPath: options.config,
+        functionFiles,
       });
     }
   );

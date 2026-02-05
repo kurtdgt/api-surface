@@ -51,6 +51,8 @@ export interface ActionsOptions {
   envPath?: string;
   /** Path to action.config.json (default: action.config.json in cwd) */
   configPath?: string;
+  /** If set, only generate actions for these function JSON filenames (e.g. ["get-properties.json"]). Omit to process all. */
+  functionFiles?: string[];
 }
 
 const ACTION_TEMPLATE = `You are a converter. Given an API route handler (HTTP method, URL path, and source code), output a single valid JSON object that matches this exact structure. No markdown, no code fence, only raw JSON.
@@ -58,8 +60,8 @@ const ACTION_TEMPLATE = `You are a converter. Given an API route handler (HTTP m
 Required JSON shape:
 {
   "serviceKey": "<string, required>",
-  "actionName": "<kebab-case identifier derived from method and URL path, e.g. post-api-auth-refresh>",
-  "displayName": "<human-readable title, e.g. Refresh Auth Token>",
+  "actionName": "<kebab-case identifier describing the purpose: verb then resource/domain, e.g. add-inspection-media, get-properties, delete-inspection-media>",
+  "displayName": "<human-readable title, e.g. Add Inspection Media>",
   "description": "<one or two sentences describing what the endpoint does>",
   "language": "javascript",
   "functionCode": "<MUST be a single async function: async function executeAction(payload, context) { ... }; escape newlines as \\n>",
@@ -88,7 +90,7 @@ CRITICAL - functionCode conversion (Next.js handler → executeAction):
   6. Validation errors (400) → return { success: false, error: "message" }.
   7. Keep the core business logic (DB calls, validation, etc.) inside executeAction; only the signature and I/O must follow the pattern above.
   8. Do NOT use Prisma or @prisma/client in functionCode. If the original handler uses prisma (e.g. prisma.inspection.findMany), rewrite the logic using raw SQL and a database client (e.g. const { Pool } = require("pg"); const pool = new Pool({ connectionString: context.systemParams.PLAYGROUND_DATABASE_URL }); pool.query("SELECT ...")). Translate Prisma queries into equivalent SQL; use context.systemParams for the connection string.
-- actionName must be kebab-case, e.g. get-api-users or post-api-auth-login.
+- actionName MUST be descriptive of the action purpose: use a verb (add, get, update, delete, list, etc.) then the resource or domain in kebab-case. Examples: add-inspection-media (POST that adds inspection media), get-properties, delete-inspection-media, list-inspections. Do NOT derive from URL path literally; infer the purpose from the handler logic.
 - Infer payloadSchema from the handler (request body, query, params).
 - responseSchema must include success, data, error as in the shape above.
 - Output only the JSON object, no other text.`;
@@ -96,7 +98,7 @@ CRITICAL - functionCode conversion (Next.js handler → executeAction):
 function buildUserPrompt(
   payload: ApiFunctionPayload,
   serviceKey: string,
-  defaultDatabaseUrl?: string,
+  defaultDatabaseUrl?: string
 ): string {
   const parts = [
     `Convert this Next.js API route handler into the action JSON format.`,
@@ -116,14 +118,16 @@ function buildUserPrompt(
     `\`\`\``,
     ``,
     `Use serviceKey: "${serviceKey}".`,
+    ``,
+    `actionName: Choose a descriptive, purpose-based name in kebab-case (verb then resource). E.g. a POST that adds inspection media → add-inspection-media; GET that fetches properties → get-properties; DELETE that removes media → delete-inspection-media. The app name may be prepended later, so output only the purpose part (e.g. add-inspection-media not add-resto-inspect-inspection-media).`,
   ];
   if (defaultDatabaseUrl) {
     parts.push(
-      `Use "${defaultDatabaseUrl}" in systemParameters and use context.systemParams.${defaultDatabaseUrl} inside executeAction for database connection.`,
+      `Use "${defaultDatabaseUrl}" in systemParameters and use context.systemParams.${defaultDatabaseUrl} inside executeAction for database connection.`
     );
   }
   parts.push(
-    `Output only the JSON object. functionCode must be executeAction(payload, context).`,
+    `Output only the JSON object. functionCode must be executeAction(payload, context).`
   );
   return parts.join("\n");
 }
@@ -140,10 +144,9 @@ function slugifyActionName(method: string, url: string): string {
 }
 
 /**
- * Insert app name into action name after the method.
- * When app name is set, a leading "api-" in the path is dropped so the result is like get-resto-inspect-properties.
- * Example: get-api-properties + resto-inspect → get-resto-inspect-properties.
- * Example: post-api-auth-refresh + resto-inspect → post-resto-inspect-auth-refresh.
+ * Insert app name into action name after the verb (first segment).
+ * Example: add-inspection-media + resto-inspect → add-resto-inspect-inspection-media.
+ * Example: get-properties + resto-inspect → get-resto-inspect-properties.
  */
 function applyAppNameToActionName(actionName: string, appName: string): string {
   const normalized = actionName.trim().toLowerCase().replace(/\s+/g, "-");
@@ -161,12 +164,18 @@ async function ensureDir(dir: string): Promise<void> {
 
 async function readApiFunctionFiles(
   inputDir: string,
+  onlyFiles?: string[]
 ): Promise<ApiFunctionPayload[]> {
   const resolved = path.resolve(inputDir);
   const entries = await fs.readdir(resolved, { withFileTypes: true });
   const payloads: ApiFunctionPayload[] = [];
+  const allowSet =
+    onlyFiles == null || onlyFiles.length === 0
+      ? null
+      : new Set(onlyFiles.map((f) => (f.endsWith(".json") ? f : `${f}.json`)));
   for (const e of entries) {
     if (!e.isFile() || !e.name.endsWith(".json")) continue;
+    if (allowSet != null && !allowSet.has(e.name)) continue;
     const filePath = path.join(resolved, e.name);
     const raw = await fs.readFile(filePath, "utf-8");
     try {
@@ -179,7 +188,7 @@ async function readApiFunctionFiles(
         payloads.push(data);
       } else {
         console.warn(
-          `  ⚠ Skipped ${e.name}: missing or invalid "method" or "url"`,
+          `  ⚠ Skipped ${e.name}: missing or invalid "method" or "url"`
         );
       }
     } catch (parseError) {
@@ -228,7 +237,7 @@ async function convertWithOpenAI(
   payload: ApiFunctionPayload,
   serviceKey: string,
   apiKey: string,
-  defaultDatabaseUrl?: string,
+  defaultDatabaseUrl?: string
 ): Promise<ActionJson> {
   const openai = new OpenAI({ apiKey });
   const userPrompt = buildUserPrompt(payload, serviceKey, defaultDatabaseUrl);
@@ -285,7 +294,9 @@ async function convertWithOpenAI(
           }
         }
         console.warn(
-          `  ⚠ Rate limit or server error (${status}), retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+          `  ⚠ Rate limit or server error (${status}), retrying in ${Math.round(
+            waitMs / 1000
+          )}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
         );
         await sleep(waitMs);
         continue;
@@ -307,7 +318,7 @@ async function convertWithClaude(
   payload: ApiFunctionPayload,
   serviceKey: string,
   apiKey: string,
-  defaultDatabaseUrl?: string,
+  defaultDatabaseUrl?: string
 ): Promise<ActionJson> {
   const anthropic = new Anthropic({ apiKey });
   const userPrompt = buildUserPrompt(payload, serviceKey, defaultDatabaseUrl);
@@ -328,7 +339,7 @@ async function convertWithClaude(
         .filter(
           (block): block is TextContentBlock =>
             block.type === "text" &&
-            typeof (block as TextContentBlock).text === "string",
+            typeof (block as TextContentBlock).text === "string"
         )
         .map((b: TextContentBlock) => b.text);
       const rawContent = textParts.join("").trim();
@@ -372,7 +383,9 @@ async function convertWithClaude(
           }
         }
         console.warn(
-          `  ⚠ Rate limit or server error (${status}), retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`,
+          `  ⚠ Rate limit or server error (${status}), retrying in ${Math.round(
+            waitMs / 1000
+          )}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
         );
         await sleep(waitMs);
         continue;
@@ -403,7 +416,7 @@ const DEFAULT_ACTION_CONFIG_PATH = "action.config.json";
 /** Load action.config.json from cwd. */
 export async function loadActionConfig(
   cwd: string,
-  configPath?: string,
+  configPath?: string
 ): Promise<ActionConfig> {
   const pathToUse = configPath
     ? path.resolve(configPath)
@@ -427,7 +440,7 @@ export async function handleActions(options: ActionsOptions): Promise<void> {
   const useClaude = Boolean(anthropicKey);
   if (!anthropicKey && !openaiKey) {
     console.error(
-      "Error: Set ANTHROPIC_API_KEY (for Claude) or OPENAI_API_KEY (for OpenAI) in your .env file or environment.",
+      "Error: Set ANTHROPIC_API_KEY (for Claude) or OPENAI_API_KEY (for OpenAI) in your .env file or environment."
     );
     process.exit(1);
   }
@@ -436,7 +449,7 @@ export async function handleActions(options: ActionsOptions): Promise<void> {
   const outputDir = path.resolve(options.outputDir);
   const actionConfig = await loadActionConfig(
     process.cwd(),
-    options.configPath,
+    options.configPath
   );
   const serviceKey =
     options.serviceKey ??
@@ -452,15 +465,19 @@ export async function handleActions(options: ActionsOptions): Promise<void> {
     process.exit(1);
   }
 
-  const payloads = await readApiFunctionFiles(inputDir);
+  const payloads = await readApiFunctionFiles(inputDir, options.functionFiles);
   if (payloads.length === 0) {
-    console.log(`No API function JSON files found in ${inputDir}`);
+    console.log(
+      options.functionFiles?.length
+        ? `No matching API function JSON files in ${inputDir} for the selected files.`
+        : `No API function JSON files found in ${inputDir}`
+    );
     return;
   }
 
   await ensureDir(outputDir);
   console.log(
-    `Converting ${payloads.length} API function(s) to action JSON (output: ${outputDir})...`,
+    `Converting ${payloads.length} API function(s) to action JSON (output: ${outputDir})...`
   );
 
   if (useClaude) {
@@ -481,20 +498,20 @@ export async function handleActions(options: ActionsOptions): Promise<void> {
             payload,
             serviceKey,
             anthropicKey!,
-            defaultDatabaseUrl,
+            defaultDatabaseUrl
           )
         : await convertWithOpenAI(
             payload,
             serviceKey,
             openaiKey!,
-            defaultDatabaseUrl,
+            defaultDatabaseUrl
           );
       if (options.appName) {
         action = {
           ...action,
           actionName: applyAppNameToActionName(
             action.actionName,
-            options.appName,
+            options.appName
           ),
         };
       }
@@ -506,7 +523,7 @@ export async function handleActions(options: ActionsOptions): Promise<void> {
     } catch (e) {
       err++;
       console.error(
-        `  ✗ ${label}: ${e instanceof Error ? e.message : String(e)}`,
+        `  ✗ ${label}: ${e instanceof Error ? e.message : String(e)}`
       );
     }
     // Pace requests to avoid rate limits (skip delay after last item)

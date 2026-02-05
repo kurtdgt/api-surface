@@ -127,6 +127,7 @@ api-surface actions <input-dir> -o <output-dir> [options]
 | `-o, --output-dir <path>` | Directory where action JSON files will be written (required).                                     |
 | `--name <app-name>`       | App name to concatenate with action name (e.g. `resto-inspect` → `get-resto-inspect-properties`). |
 | `--service-key <key>`     | Default `serviceKey` for generated actions (e.g. `rm_playground_database`).                       |
+| `--functions <list>`      | Comma-separated function JSON filenames to generate for (default: all in input dir).              |
 | `--env <path>`            | Path to `.env` file (default: `.env` in cwd).                                                     |
 | `-c, --config <path>`     | Path to `action.config.json` (default: `action.config.json` in cwd).                              |
 
