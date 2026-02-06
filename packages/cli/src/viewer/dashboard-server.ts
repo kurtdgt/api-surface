@@ -36,7 +36,7 @@ function runCliStream(
   cliPath: string,
   args: string[],
   res: http.ServerResponse,
-  onProc: (proc: ChildProcess | null) => void
+  onProc: (proc: ChildProcess | null) => void,
 ): void {
   const proc = spawn("node", [cliPath, ...args], {
     cwd,
@@ -84,7 +84,7 @@ export interface DashboardServerOptions {
 }
 
 export async function startDashboardServer(
-  options: DashboardServerOptions = {}
+  options: DashboardServerOptions = {},
 ): Promise<void> {
   const port = options.port ?? DEFAULT_PORT;
   const cwd = options.cwd ?? process.cwd();
@@ -112,7 +112,7 @@ export async function startDashboardServer(
       if (pathname === "/api/scan-result") {
         const filePath = resolvePath(
           cwd,
-          query.path || "results/restoinspect.json"
+          query.path || "results/restoinspect.json",
         );
         try {
           const content = await fs.readFile(filePath, "utf-8");
@@ -125,7 +125,7 @@ export async function startDashboardServer(
               error: "File not found",
               path: filePath,
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -148,7 +148,7 @@ export async function startDashboardServer(
               error: "Directory not found",
               path: dir,
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -173,7 +173,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "File not found",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -196,7 +196,7 @@ export async function startDashboardServer(
               error: "Directory not found",
               path: dir,
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -244,7 +244,7 @@ export async function startDashboardServer(
               error: "Directory not found",
               path: dir,
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -269,7 +269,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "File not found",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -294,7 +294,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -318,7 +318,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete all failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -343,7 +343,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -367,13 +367,16 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete all failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
       }
 
-      if (pathname === "/api/actions/bulk-update-service-key" && req.method === "POST") {
+      if (
+        pathname === "/api/actions/bulk-update-service-key" &&
+        req.method === "POST"
+      ) {
         let body = "";
         for await (const chunk of req) body += chunk;
         let params: { dir?: string; files?: string[]; serviceKey?: string };
@@ -386,7 +389,8 @@ export async function startDashboardServer(
         }
         const dir = resolvePath(cwd, params.dir || "actions/");
         const files = Array.isArray(params.files) ? params.files : [];
-        const serviceKey = typeof params.serviceKey === "string" ? params.serviceKey.trim() : "";
+        const serviceKey =
+          typeof params.serviceKey === "string" ? params.serviceKey.trim() : "";
         if (!serviceKey) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "serviceKey is required" }));
@@ -416,7 +420,12 @@ export async function startDashboardServer(
           }
         }
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ updated, failed: failed.length ? failed : undefined }));
+        res.end(
+          JSON.stringify({
+            updated,
+            failed: failed.length ? failed : undefined,
+          }),
+        );
         return;
       }
 
@@ -424,7 +433,9 @@ export async function startDashboardServer(
         try {
           const proxyRes = await fetch(SYSTEM_PARAMETERS_API_URL);
           const text = await proxyRes.text();
-          res.writeHead(proxyRes.status, { "Content-Type": "application/json" });
+          res.writeHead(proxyRes.status, {
+            "Content-Type": "application/json",
+          });
           res.end(text || "{}");
         } catch (e) {
           res.writeHead(502, { "Content-Type": "application/json" });
@@ -438,7 +449,10 @@ export async function startDashboardServer(
         return;
       }
 
-      if (pathname === "/api/proxy/system-parameters" && req.method === "POST") {
+      if (
+        pathname === "/api/proxy/system-parameters" &&
+        req.method === "POST"
+      ) {
         let body = "";
         for await (const chunk of req) body += chunk;
         let params: { payload?: Record<string, unknown> };
@@ -449,7 +463,10 @@ export async function startDashboardServer(
           res.end(JSON.stringify({ error: "Invalid JSON body" }));
           return;
         }
-        const payload = params.payload && typeof params.payload === "object" ? params.payload : null;
+        const payload =
+          params.payload && typeof params.payload === "object"
+            ? params.payload
+            : null;
         if (!payload) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: "payload is required" }));
@@ -471,7 +488,9 @@ export async function startDashboardServer(
               jsonBody = { ok: proxyRes.ok, body: text };
             }
           }
-          res.writeHead(proxyRes.status, { "Content-Type": "application/json" });
+          res.writeHead(proxyRes.status, {
+            "Content-Type": "application/json",
+          });
           res.end(JSON.stringify(jsonBody));
         } catch (e) {
           res.writeHead(502, { "Content-Type": "application/json" });
@@ -502,7 +521,7 @@ export async function startDashboardServer(
               error: "Directory not found",
               path: dir,
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -527,7 +546,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "File not found",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -552,7 +571,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -576,7 +595,7 @@ export async function startDashboardServer(
             JSON.stringify({
               error: "Delete all failed",
               message: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -602,7 +621,7 @@ export async function startDashboardServer(
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -654,14 +673,107 @@ export async function startDashboardServer(
               statusText: fetchRes.statusText,
               ok: fetchRes.ok,
               body: responseBody,
-            })
+            }),
           );
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/tested" && req.method === "GET") {
+        const filePath = resolvePath(
+          cwd,
+          (query.path || "actions/tested.json").trim() || "actions/tested.json",
+        );
+        setCors();
+        try {
+          const content = await fs.readFile(filePath, "utf-8");
+          const data = JSON.parse(content);
+          if (typeof data !== "object" || data === null) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({}));
+            return;
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(data));
+        } catch (err: unknown) {
+          if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({}));
+            return;
+          }
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/tested" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        setCors();
+        try {
+          const params = JSON.parse(body || "{}") as {
+            path?: string;
+            serviceKey: string;
+            actionName: string;
+          };
+          const { path: filePathParam, serviceKey, actionName } = params;
+          if (
+            !serviceKey ||
+            typeof serviceKey !== "string" ||
+            !actionName ||
+            typeof actionName !== "string"
+          ) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(
+              JSON.stringify({
+                error: "serviceKey and actionName are required",
+              }),
+            );
+            return;
+          }
+          const filePath = resolvePath(
+            cwd,
+            (filePathParam || "actions/tested.json").trim() ||
+              "actions/tested.json",
+          );
+          let data: Record<string, string[]> = {};
+          try {
+            const content = await fs.readFile(filePath, "utf-8");
+            const parsed = JSON.parse(content);
+            if (parsed && typeof parsed === "object") {
+              data = parsed;
+            }
+          } catch {
+            // ENOENT or invalid JSON: start fresh
+          }
+          if (!Array.isArray(data[serviceKey])) {
+            data[serviceKey] = [];
+          }
+          if (!data[serviceKey].includes(actionName)) {
+            data[serviceKey].push(actionName);
+          }
+          await fs.mkdir(path.dirname(filePath), { recursive: true });
+          await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, data }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: e instanceof Error ? e.message : String(e),
+            }),
           );
         }
         return;
@@ -691,8 +803,7 @@ export async function startDashboardServer(
         if (command === "scan") {
           const scanDir = params.scanDir || ".";
           const outputPath = params.outputPath || "results/restoinspect.json";
-          const functionCodeDir =
-            params.functionCodeDir || "functions/";
+          const functionCodeDir = params.functionCodeDir || "functions/";
           args = [
             "scan",
             scanDir,
@@ -751,7 +862,7 @@ export async function startDashboardServer(
         } else {
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(
-            JSON.stringify({ stopped: false, message: "No process running" })
+            JSON.stringify({ stopped: false, message: "No process running" }),
           );
         }
         return;
@@ -770,7 +881,7 @@ export async function startDashboardServer(
       res.end(
         JSON.stringify({
           error: error instanceof Error ? error.message : String(error),
-        })
+        }),
       );
     }
   });
@@ -830,6 +941,20 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .test-form-row input, .test-form-row textarea { width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); font-family: ui-monospace, monospace; font-size: 12px; box-sizing: border-box; }
     .test-form-row textarea { min-height: 100px; resize: vertical; }
     .test-response { margin-top: 12px; white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 300px; overflow: auto; }
+    .btn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: btn-spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes btn-spin { to { transform: rotate(360deg); } }
+    .btn.btn-loading { pointer-events: none; opacity: 0.85; }
+    .test-subtabs { display: flex; gap: 4px; padding: 0 20px 12px; border-bottom: 1px solid var(--border); }
+    .test-subtab { padding: 8px 14px; font-size: 13px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text-muted); cursor: pointer; }
+    .test-subtab:hover { color: var(--text); background: var(--hover); }
+    .test-subtab.active { color: var(--text); font-weight: 600; background: var(--surface); border-color: var(--border); }
+    .test-subtab-panel.hidden { display: none; }
+    .test-tested-bar { margin-bottom: 12px; }
+    .tested-list { font-size: 13px; }
+    .tested-service-group { margin-bottom: 20px; }
+    .tested-service-group h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .tested-service-group ul { list-style: none; margin: 0; padding: 0; }
+    .tested-service-group li { padding: 6px 0; padding-left: 12px; border-left: 2px solid var(--border); margin-left: 0; }
     header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
     h1 { font-size: 1.5rem; font-weight: 600; }
     .theme-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; }
@@ -989,11 +1114,21 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             <input type="text" id="paramsScanPath" value="results/" placeholder="Uses Scan output file from Scan tab if empty" title="Path to scan result JSON (optional when using Scan output file)" />
           </div>
         </div>
+      </div>
+      <div class="panel-config params-add-form">
         <div class="panel-config-title">Add system parameter</div>
         <div class="params-form-grid">
           <div class="input-group">
             <label for="paramServiceKey">serviceKey</label>
-            <input type="text" id="paramServiceKey" placeholder="e.g. monday" required />
+            <select id="paramServiceKey">
+              <option value="rm_database">rm_database</option>
+              <option value="rm_playground_database">rm_playground_database</option>
+              <option value="aws">aws</option>
+              <option value="twilio">twilio</option>
+              <option value="google">google</option>
+              <option value="__custom__">Custom...</option>
+            </select>
+            <input type="text" id="paramServiceKeyCustom" placeholder="Enter custom serviceKey" style="display:none; margin-top:6px;" />
           </div>
           <div class="input-group">
             <label for="paramParamKey">paramKey</label>
@@ -1013,7 +1148,24 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div class="input-group">
             <label for="paramCategory">category</label>
-            <input type="text" id="paramCategory" placeholder="e.g. authentication" />
+            <select id="paramCategory">
+              <option value="">—</option>
+              <option value="authentication">authentication</option>
+              <option value="configuration">configuration</option>
+              <option value="integration">integration</option>
+              <option value="webhook">webhook</option>
+              <option value="storage">storage</option>
+              <option value="communication">communication</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label for="paramTenant">Tenant</label>
+            <select id="paramTenant">
+              <option value="1">RestoreMasters</option>
+              <option value="null">Global</option>
+              <option value="__custom__">Custom...</option>
+            </select>
+            <input type="text" id="paramTenantCustom" placeholder="Enter custom tenant" style="display:none; margin-top:6px;" />
           </div>
           <div class="input-group params-checkboxes">
             <label><input type="checkbox" id="paramIsRequired" /> isRequired</label>
@@ -1086,8 +1238,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
       </div>
-      <div class="panel-header"><h2>Endpoints</h2><div class="actions-bar"><button type="button" class="btn btn-primary" id="testLoadFromDir">Load from actions directory</button></div></div>
+      <div class="panel-header"><h2>Test</h2><div class="actions-bar"><button type="button" class="btn btn-primary" id="testLoadFromDir">Load from actions directory</button></div></div>
+      <div class="test-subtabs">
+        <button type="button" class="test-subtab active" data-test-subtab="endpoints">Endpoints</button>
+        <button type="button" class="test-subtab" data-test-subtab="tested">Tested</button>
+      </div>
       <div class="panel-body">
+        <div id="testSubtabEndpoints" class="test-subtab-panel">
         <div class="test-form hidden" id="testForm">
           <div class="test-form-row">
             <label>URL</label>
@@ -1115,6 +1272,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
         <ul class="test-endpoints-list" id="testEndpointsList"></ul>
+        </div>
+        <div id="testSubtabTested" class="test-subtab-panel hidden">
+          <div class="test-tested-bar"><button type="button" class="btn btn-secondary" id="refreshTested">Refresh</button></div>
+          <div id="testedList" class="tested-list">Loading...</div>
+        </div>
       </div>
     </div>
 
@@ -1161,6 +1323,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     const serviceKey = () => document.getElementById('serviceKey').value.trim();
     const testBaseUrl = () => document.getElementById('testBaseUrl').value.trim().replace(/\\/$/, '');
     const testActionsDir = () => document.getElementById('testActionsDir').value.trim() || 'actions/';
+    const testedPath = () => 'actions/tested.json';
 
     const TEST_STORAGE_KEY = 'dashboard-test-endpoints';
     function getTestEndpoints() {
@@ -1174,6 +1337,35 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     let currentTestEndpoint = null;
+
+    async function loadTestedList() {
+      const container = document.getElementById('testedList');
+      if (!container) return;
+      try {
+        const data = await api('/api/tested?path=' + encodeURIComponent(testedPath()));
+        if (!data || typeof data !== 'object') {
+          container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No tested actions recorded.</p>';
+          return;
+        }
+        const keys = Object.keys(data).filter(k => Array.isArray(data[k]) && data[k].length > 0).sort();
+        if (keys.length === 0) {
+          container.innerHTML = '<p style="color:var(--text-muted);padding:16px;">No tested actions recorded.</p>';
+          return;
+        }
+        let html = '';
+        keys.forEach(serviceKey => {
+          const actions = data[serviceKey];
+          html += '<div class="tested-service-group"><h4>' + escapeHtml(serviceKey) + '</h4><ul>';
+          actions.forEach(actionName => {
+            html += '<li>' + escapeHtml(actionName) + '</li>';
+          });
+          html += '</ul></div>';
+        });
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<div class="log-box error">' + escapeHtml(e.message || String(e)) + '</div>';
+      }
+    }
 
     function renderTestEndpoints() {
       const list = document.getElementById('testEndpointsList');
@@ -1205,6 +1397,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         btn.classList.add('active');
         document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
         if (btn.dataset.tab === 'params') loadParams();
+      });
+    });
+    document.querySelectorAll('.test-subtab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.test-subtab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const id = btn.dataset.testSubtab;
+        document.getElementById('testSubtabEndpoints').classList.toggle('hidden', id !== 'endpoints');
+        document.getElementById('testSubtabTested').classList.toggle('hidden', id !== 'tested');
+        if (id === 'tested') loadTestedList();
       });
     });
 
@@ -1526,14 +1728,40 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     (function initParamsSourceVisibility() {
       document.getElementById('paramsScanPathGroup').style.display = paramsSource() === 'scan' ? '' : 'none';
     })();
+    (function () {
+      const sel = document.getElementById('paramServiceKey');
+      const customInput = document.getElementById('paramServiceKeyCustom');
+      function toggleCustom() {
+        customInput.style.display = sel.value === '__custom__' ? 'block' : 'none';
+        if (sel.value !== '__custom__') customInput.value = '';
+      }
+      sel.addEventListener('change', toggleCustom);
+      toggleCustom();
+    })();
+    (function () {
+      const sel = document.getElementById('paramTenant');
+      const customInput = document.getElementById('paramTenantCustom');
+      function toggleCustom() {
+        customInput.style.display = sel.value === '__custom__' ? 'block' : 'none';
+        if (sel.value !== '__custom__') customInput.value = '';
+      }
+      sel.addEventListener('change', toggleCustom);
+      toggleCustom();
+    })();
     document.getElementById('paramSubmit').addEventListener('click', async () => {
       const msgEl = document.getElementById('paramFormMessage');
       msgEl.textContent = '';
       msgEl.className = 'params-form-message';
-      const serviceKey = document.getElementById('paramServiceKey').value.trim();
+      const serviceKeySelect = document.getElementById('paramServiceKey');
+      const serviceKeyCustom = document.getElementById('paramServiceKeyCustom');
+      const serviceKey = (serviceKeySelect.value === '__custom__' ? serviceKeyCustom.value : serviceKeySelect.value).trim();
       const paramKey = document.getElementById('paramParamKey').value.trim();
       if (!serviceKey) { msgEl.textContent = 'serviceKey is required.'; msgEl.classList.add('error'); return; }
       if (!paramKey) { msgEl.textContent = 'paramKey is required.'; msgEl.classList.add('error'); return; }
+      const tenantSelect = document.getElementById('paramTenant');
+      const tenantCustom = document.getElementById('paramTenantCustom');
+      const tenantRaw = tenantSelect.value === '__custom__' ? tenantCustom.value.trim() : tenantSelect.value;
+      const tenant = tenantRaw === '' || tenantRaw === 'null' ? null : tenantRaw;
       const payload = {
         serviceKey,
         paramKey,
@@ -1541,6 +1769,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         displayName: document.getElementById('paramDisplayName').value.trim() || undefined,
         description: document.getElementById('paramDescription').value.trim() || undefined,
         category: document.getElementById('paramCategory').value.trim() || undefined,
+        tenant,
         isRequired: document.getElementById('paramIsRequired').checked,
         isEncrypted: document.getElementById('paramIsEncrypted').checked
       };
@@ -1558,6 +1787,20 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         }
         msgEl.textContent = 'Added successfully.';
         msgEl.classList.add('success');
+        setTimeout(() => { msgEl.textContent = ''; msgEl.classList.remove('success'); }, 3000);
+        document.getElementById('paramServiceKey').value = 'rm_database';
+        document.getElementById('paramServiceKeyCustom').value = '';
+        document.getElementById('paramServiceKeyCustom').style.display = 'none';
+        document.getElementById('paramParamKey').value = '';
+        document.getElementById('paramParamValue').value = '';
+        document.getElementById('paramDisplayName').value = '';
+        document.getElementById('paramDescription').value = '';
+        document.getElementById('paramCategory').value = '';
+        document.getElementById('paramTenant').value = '1';
+        document.getElementById('paramTenantCustom').value = '';
+        document.getElementById('paramTenantCustom').style.display = 'none';
+        document.getElementById('paramIsRequired').checked = false;
+        document.getElementById('paramIsEncrypted').checked = false;
       } catch (e) {
         msgEl.textContent = (e.message || e) + '';
         msgEl.classList.add('error');
@@ -1688,11 +1931,25 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     });
 
+    function setButtonLoading(btn, loading) {
+      if (loading) {
+        btn.dataset.originalText = btn.textContent;
+        btn.disabled = true;
+        btn.classList.add('btn-loading');
+        btn.innerHTML = '<span class="btn-spinner"></span> ' + (btn.dataset.originalText || 'Loading...');
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('btn-loading');
+        btn.textContent = btn.dataset.originalText || '';
+      }
+    }
     document.getElementById('testSuggestAi').addEventListener('click', async () => {
       if (!currentTestEndpoint || !currentTestEndpoint.file) {
         alert('Load from actions directory first so the endpoint has a file reference for AI suggestion.');
         return;
       }
+      const btn = document.getElementById('testSuggestAi');
+      setButtonLoading(btn, true);
       try {
         const actionJson = await api('/api/actions/file?dir=' + encodeURIComponent(testActionsDir()) + '&file=' + encodeURIComponent(currentTestEndpoint.file));
         const res = await fetch('/api/test/suggest-payload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionJson }) });
@@ -1703,6 +1960,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       } catch (e) {
         document.getElementById('testResponse').textContent = 'Suggest failed: ' + (e.message || e);
         document.getElementById('testResponse').className = 'log-box test-response error';
+      } finally {
+        setButtonLoading(btn, false);
       }
     });
 
@@ -1719,6 +1978,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('testResponse').className = 'log-box test-response error';
         return;
       }
+      const sendBtn = document.getElementById('testSend');
+      setButtonLoading(sendBtn, true);
       try {
         const res = await fetch('/api/test/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, method, body: body || undefined, queryParams }) });
         const data = await res.json();
@@ -1726,11 +1987,21 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         const out = 'Status: ' + data.status + ' ' + data.statusText + '\\n\\n' + (typeof data.body === 'string' ? data.body : JSON.stringify(data.body, null, 2));
         document.getElementById('testResponse').textContent = out;
         document.getElementById('testResponse').className = 'log-box test-response' + (data.ok ? ' success' : ' error');
+        if (data.status === 200 && currentTestEndpoint?.serviceKey && currentTestEndpoint?.actionName) {
+          try {
+            await fetch('/api/tested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: testedPath(), serviceKey: currentTestEndpoint.serviceKey, actionName: currentTestEndpoint.actionName }) });
+            const testedPanel = document.getElementById('testSubtabTested');
+            if (testedPanel && !testedPanel.classList.contains('hidden')) loadTestedList();
+          } catch (_) { /* ignore */ }
+        }
       } catch (e) {
         document.getElementById('testResponse').textContent = 'Request failed: ' + (e.message || e);
         document.getElementById('testResponse').className = 'log-box test-response error';
+      } finally {
+        setButtonLoading(sendBtn, false);
       }
     });
+    document.getElementById('refreshTested').addEventListener('click', loadTestedList);
 
     loadScan();
     loadResults();
