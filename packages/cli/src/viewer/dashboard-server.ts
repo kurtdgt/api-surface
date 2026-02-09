@@ -955,6 +955,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .tested-service-group h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
     .tested-service-group ul { list-style: none; margin: 0; padding: 0; }
     .tested-service-group li { padding: 6px 0; padding-left: 12px; border-left: 2px solid var(--border); margin-left: 0; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-overlay.hidden { display: none; }
+    .modal-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+    .modal-message { margin: 0 0 20px 0; font-size: 14px; line-height: 1.5; color: var(--text); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
     header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
     h1 { font-size: 1.5rem; font-weight: 600; }
     .theme-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; }
@@ -1289,6 +1294,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
       <div class="log-box" id="runLog">Output will appear here after running a command.</div>
     </div>
+
+    <div id="testedConfirmModal" class="modal-overlay hidden" aria-hidden="true">
+      <div class="modal-dialog">
+        <p class="modal-message">The action returned 200 OK. Confirm that it&apos;s working and add it to tested history?</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="testedConfirmAdd">Add to tested</button>
+          <button type="button" class="btn btn-secondary" id="testedConfirmCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -1337,6 +1352,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
 
     let currentTestEndpoint = null;
+    let pendingTestedAdd = null;
 
     async function loadTestedList() {
       const container = document.getElementById('testedList');
@@ -1988,11 +2004,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('testResponse').textContent = out;
         document.getElementById('testResponse').className = 'log-box test-response' + (data.ok ? ' success' : ' error');
         if (data.status === 200 && currentTestEndpoint?.serviceKey && currentTestEndpoint?.actionName) {
-          try {
-            await fetch('/api/tested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: testedPath(), serviceKey: currentTestEndpoint.serviceKey, actionName: currentTestEndpoint.actionName }) });
-            const testedPanel = document.getElementById('testSubtabTested');
-            if (testedPanel && !testedPanel.classList.contains('hidden')) loadTestedList();
-          } catch (_) { /* ignore */ }
+          pendingTestedAdd = { serviceKey: currentTestEndpoint.serviceKey, actionName: currentTestEndpoint.actionName };
+          const modal = document.getElementById('testedConfirmModal');
+          if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); }
         }
       } catch (e) {
         document.getElementById('testResponse').textContent = 'Request failed: ' + (e.message || e);
@@ -2002,6 +2016,25 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     });
     document.getElementById('refreshTested').addEventListener('click', loadTestedList);
+
+    function closeTestedConfirmModal() {
+      pendingTestedAdd = null;
+      const modal = document.getElementById('testedConfirmModal');
+      if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden', 'true'); }
+    }
+    document.getElementById('testedConfirmAdd').addEventListener('click', async () => {
+      if (!pendingTestedAdd) { closeTestedConfirmModal(); return; }
+      try {
+        await fetch('/api/tested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: testedPath(), serviceKey: pendingTestedAdd.serviceKey, actionName: pendingTestedAdd.actionName }) });
+        const testedPanel = document.getElementById('testSubtabTested');
+        if (testedPanel && !testedPanel.classList.contains('hidden')) loadTestedList();
+      } catch (_) { /* ignore */ }
+      closeTestedConfirmModal();
+    });
+    document.getElementById('testedConfirmCancel').addEventListener('click', closeTestedConfirmModal);
+    document.getElementById('testedConfirmModal').addEventListener('click', (e) => {
+      if (e.target.id === 'testedConfirmModal') closeTestedConfirmModal();
+    });
 
     loadScan();
     loadResults();
