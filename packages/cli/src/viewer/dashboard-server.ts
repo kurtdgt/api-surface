@@ -8,7 +8,9 @@ import * as http from "http";
 import open from "open";
 import * as path from "path";
 import * as url from "url";
+import { config as loadEnv } from "dotenv";
 import { suggestTestPayload } from "../commands/suggest-test-payload";
+import { generatePrismaSqlFromSchema } from "../commands/generate-prisma-sql";
 
 const EXECUTE_BASE_URL =
   "https://refreshing-amazement-production.up.railway.app/api/v2/execute";
@@ -627,6 +629,42 @@ export async function startDashboardServer(
         return;
       }
 
+      if (pathname === "/api/prisma-to-sql" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        try {
+          const params = JSON.parse(body || "{}") as { repoPath?: string };
+          const repoPath = (params.repoPath || ".").trim();
+          const schemaPath = path.join(
+            resolvePath(cwd, repoPath),
+            "prisma",
+            "schema.prisma"
+          );
+          const schemaContent = await fs.readFile(schemaPath, "utf-8");
+          loadEnv();
+          const anthropicKey = process.env.ANTHROPIC_API_KEY;
+          const openaiKey = process.env.OPENAI_API_KEY;
+          const result = await generatePrismaSqlFromSchema(schemaContent, {
+            anthropicKey,
+            openaiKey,
+          });
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ sql: result.sql }));
+        } catch (e) {
+          const code =
+            (e as NodeJS.ErrnoException)?.code === "ENOENT" ? 404 : 500;
+          res.writeHead(code, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: e instanceof Error ? e.message : String(e),
+            })
+          );
+        }
+        return;
+      }
+
       if (pathname === "/api/test/execute" && req.method === "POST") {
         let body = "";
         for await (const chunk of req) body += chunk;
@@ -929,34 +967,45 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .command-output-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .command-output-header h3 { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0; }
     .command-output .log-box { max-height: 180px; margin-top: 0; }
-    .test-endpoints-list { list-style: none; margin-bottom: 20px; }
-    .test-endpoints-list li { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .test-endpoints-list li:hover { background: var(--hover); }
-    .test-endpoint-info { flex: 1; min-width: 0; }
-    .test-endpoint-info strong { font-size: 13px; }
-    .test-endpoint-info span { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
-    .test-form { background: var(--stat-bg); border-radius: 10px; padding: 24px; margin-top: 24px; border: 1px solid var(--border); }
+    .test-config-actions { margin-top: 16px; }
+    .panel-body-test { padding-top: 20px; }
+    .test-form { background: var(--stat-bg); border-radius: 12px; padding: 28px; margin-bottom: 28px; border: 1px solid var(--border); }
+    .test-form-section { margin-bottom: 24px; }
+    .test-form-section:last-child { margin-bottom: 0; }
+    .test-form-section-response { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+    .test-form-section-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 14px 0; }
     .test-form-row { margin-bottom: 16px; }
     .test-form-row:last-of-type { margin-bottom: 0; }
     .test-form-row label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
     .test-form-row input, .test-form-row textarea { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); font-family: ui-monospace, monospace; font-size: 12px; box-sizing: border-box; }
     .test-form-row textarea { min-height: 100px; resize: vertical; }
-    .test-response { margin-top: 16px; white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 300px; overflow: auto; }
+    .test-form-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+    .test-response { margin-top: 0; white-space: pre-wrap; word-break: break-all; font-size: 12px; max-height: 320px; overflow: auto; min-height: 80px; }
+    .test-endpoints-wrap { margin-top: 8px; }
+    .test-endpoints-heading { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 12px 0; }
+    .test-endpoints-list { list-style: none; margin: 0; border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+    .test-endpoints-list li { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface); }
+    .test-endpoints-list li:last-child { border-bottom: none; }
+    .test-endpoints-list li:hover { background: var(--hover); }
+    .test-endpoint-info { flex: 1; min-width: 0; }
+    .test-endpoint-info strong { font-size: 13px; }
+    .test-endpoint-info span { font-size: 12px; color: var(--text-muted); margin-left: 8px; }
     .btn-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: btn-spin 0.6s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes btn-spin { to { transform: rotate(360deg); } }
     .btn.btn-loading { pointer-events: none; opacity: 0.85; }
-    .test-subtabs { display: flex; gap: 6px; padding: 0 24px 16px; margin-bottom: 0; border-bottom: 1px solid var(--border); }
-    .test-subtab { padding: 10px 18px; font-size: 13px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); cursor: pointer; }
+    .test-subtabs { display: flex; gap: 8px; padding: 0 28px 18px; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+    .test-subtab { padding: 10px 20px; font-size: 13px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-muted); cursor: pointer; transition: background 0.2s, color 0.2s; }
     .test-subtab:hover { color: var(--text); background: var(--hover); }
     .test-subtab.active { color: var(--text); font-weight: 600; background: var(--surface); border-color: var(--border); }
     .test-subtab-panel.hidden { display: none; }
-    .test-tested-bar { margin-bottom: 16px; }
+    .tested-intro { font-size: 13px; color: var(--text-muted); margin: 0 0 16px 0; line-height: 1.5; }
+    .test-tested-bar { margin-bottom: 18px; }
     .tested-list { font-size: 13px; }
-    .tested-service-group { margin-bottom: 24px; }
+    .tested-service-group { margin-bottom: 28px; padding: 18px; background: var(--stat-bg); border-radius: 10px; border: 1px solid var(--border); }
     .tested-service-group:last-child { margin-bottom: 0; }
-    .tested-service-group h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .tested-service-group h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
     .tested-service-group ul { list-style: none; margin: 0; padding: 0; }
-    .tested-service-group li { padding: 8px 0; padding-left: 14px; border-left: 2px solid var(--border); margin-left: 0; }
+    .tested-service-group li { padding: 8px 0; padding-left: 14px; border-left: 3px solid var(--border); margin-left: 0; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal-overlay.hidden { display: none; }
     .modal-dialog { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
@@ -1052,6 +1101,12 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .params-form-message.success { color: #22c55e; }
     .params-form-message.error { color: #ef4444; }
     .input-group select { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 13px; width: 100%; max-width: 280px; cursor: pointer; }
+    .prisma-sql-desc { font-size: 13px; color: var(--text-muted); margin: 0 0 8px 0; line-height: 1.45; }
+    .prisma-sql-desc code { background: var(--stat-bg); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    .prisma-sql-output { margin-top: 16px; }
+    .prisma-sql-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .prisma-sql-pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 400px; overflow: auto; margin: 0; }
+    .prisma-sql-error { margin-top: 12px; padding: 12px; background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -1089,9 +1144,30 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             <label for="scanOutputPath">Scan output file</label>
             <input type="text" id="scanOutputPath" value="results/restoinspect.json" title="Path to the scan result JSON file to display" />
           </div>
+          <div class="input-group">
+            <label for="scanFunctionCodeDir">Functions output dir</label>
+            <input type="text" id="scanFunctionCodeDir" value="functions/" placeholder="e.g. functions/" title="Directory where parsed function JSON files will be written (relative to repo)" />
+          </div>
+        </div>
+        <div class="actions-bar" style="margin-top:16px;">
+          <button type="button" class="btn btn-primary" id="runScan">Scan</button>
+          <button type="button" class="btn btn-secondary" id="refreshScan">Refresh</button>
         </div>
       </div>
-      <div class="panel-header"><h2>Scan</h2><div class="actions-bar"><button type="button" class="btn btn-primary" id="runScan">Scan</button><button type="button" class="btn btn-secondary" id="refreshScan">Refresh</button></div></div>
+      <div class="panel-config">
+        <div class="panel-config-title">Prisma → Supabase SQL</div>
+        <p class="prisma-sql-desc">Generate PostgreSQL SQL from <code>prisma/schema.prisma</code> in the repo (for Supabase SQL Editor). Requires ANTHROPIC_API_KEY or OPENAI_API_KEY in .env.</p>
+        <div class="actions-bar" style="margin-top:12px;">
+          <button type="button" class="btn btn-primary" id="generatePrismaSql">Generate SQL from Prisma schema</button>
+          <button type="button" class="btn btn-secondary hidden" id="copyPrismaSql" title="Copy to clipboard">Copy SQL</button>
+        </div>
+        <div id="prismaSqlOutput" class="prisma-sql-output hidden">
+          <label class="prisma-sql-label">Generated SQL</label>
+          <pre id="prismaSqlPre" class="prisma-sql-pre"></pre>
+        </div>
+        <div id="prismaSqlError" class="prisma-sql-error hidden"></div>
+      </div>
+      <div class="panel-header"><h2>Scan</h2></div>
       <div class="panel-body" id="scanBody"><div class="log-box">Loading...</div></div>
     </div>
 
@@ -1237,7 +1313,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     <div id="panel-test" class="panel">
       <div class="panel-config">
-        <div class="panel-config-title">Test endpoints</div>
+        <div class="panel-config-title">Test settings</div>
         <div class="inputs">
           <div class="input-group">
             <label for="testBaseUrl">Execute base URL</label>
@@ -1248,44 +1324,56 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             <input type="text" id="testActionsDir" value="actions/" placeholder="e.g. actions/repo-name" title="Directory to load endpoints from" />
           </div>
         </div>
+        <div class="actions-bar test-config-actions">
+          <button type="button" class="btn btn-primary" id="testLoadFromDir">Load from actions directory</button>
+        </div>
       </div>
-      <div class="panel-header"><h2>Test</h2><div class="actions-bar"><button type="button" class="btn btn-primary" id="testLoadFromDir">Load from actions directory</button></div></div>
+      <div class="panel-header"><h2>Test</h2></div>
       <div class="test-subtabs">
         <button type="button" class="test-subtab active" data-test-subtab="endpoints">Endpoints</button>
         <button type="button" class="test-subtab" data-test-subtab="tested">Tested</button>
       </div>
-      <div class="panel-body">
+      <div class="panel-body panel-body-test">
         <div id="testSubtabEndpoints" class="test-subtab-panel">
-        <div class="test-form hidden" id="testForm">
-          <div class="test-form-row">
-            <label>URL</label>
-            <input type="text" id="testUrl" readonly />
+          <div class="test-form hidden" id="testForm">
+            <div class="test-form-section">
+              <h3 class="test-form-section-title">Request</h3>
+              <div class="test-form-row">
+                <label>URL</label>
+                <input type="text" id="testUrl" readonly />
+              </div>
+              <div class="test-form-row">
+                <label>Method</label>
+                <input type="text" id="testMethod" value="POST" />
+              </div>
+              <div class="test-form-row">
+                <label>Query params (JSON object)</label>
+                <textarea id="testQueryParams" placeholder="{}"></textarea>
+              </div>
+              <div class="test-form-row">
+                <label>Body (JSON)</label>
+                <textarea id="testBody" placeholder="{}"></textarea>
+              </div>
+              <div class="test-form-actions">
+                <button type="button" class="btn btn-primary" id="testSuggestAi">Suggest with AI</button>
+                <button type="button" class="btn btn-primary" id="testSend">Send request</button>
+              </div>
+            </div>
+            <div class="test-form-section test-form-section-response">
+              <h3 class="test-form-section-title">Response</h3>
+              <pre class="log-box test-response" id="testResponse">—</pre>
+            </div>
           </div>
-          <div class="test-form-row">
-            <label>Method</label>
-            <input type="text" id="testMethod" value="POST" />
+          <div class="test-endpoints-wrap">
+            <h3 class="test-endpoints-heading">Endpoints</h3>
+            <ul class="test-endpoints-list" id="testEndpointsList"></ul>
           </div>
-          <div class="test-form-row">
-            <label>Query params (JSON object)</label>
-            <textarea id="testQueryParams" placeholder="{}"></textarea>
-          </div>
-          <div class="test-form-row">
-            <label>Body (JSON)</label>
-            <textarea id="testBody" placeholder="{}"></textarea>
-          </div>
-          <div class="actions-bar">
-            <button type="button" class="btn btn-primary" id="testSuggestAi">Suggest with AI</button>
-            <button type="button" class="btn btn-primary" id="testSend">Send request</button>
-          </div>
-          <div class="test-form-row">
-            <label>Response</label>
-            <pre class="log-box test-response" id="testResponse">—</pre>
-          </div>
-        </div>
-        <ul class="test-endpoints-list" id="testEndpointsList"></ul>
         </div>
         <div id="testSubtabTested" class="test-subtab-panel hidden">
-          <div class="test-tested-bar"><button type="button" class="btn btn-secondary" id="refreshTested">Refresh</button></div>
+          <p class="tested-intro">Actions you’ve confirmed as working (200 OK) appear here by service.</p>
+          <div class="test-tested-bar">
+            <button type="button" class="btn btn-secondary" id="refreshTested">Refresh</button>
+          </div>
           <div id="testedList" class="tested-list">Loading...</div>
         </div>
       </div>
@@ -1336,6 +1424,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     const scanDir = () => document.getElementById('scanDir').value.trim() || '.';
     const apiRoutesDir = () => document.getElementById('apiRoutesDir').value.trim();
     const scanOutputPath = () => document.getElementById('scanOutputPath').value;
+    const scanFunctionCodeDir = () => document.getElementById('scanFunctionCodeDir').value.trim() || 'functions/';
     const resultsDir = () => document.getElementById('resultsDir').value.trim() || 'results';
     const functionsDir = () => document.getElementById('functionsDir').value;
     const actionsDir = () => document.getElementById('actionsDir').value;
@@ -1741,6 +1830,49 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     document.getElementById('runStop').addEventListener('click', onStopClick);
 
     document.getElementById('refreshScan').addEventListener('click', loadScan);
+    document.getElementById('generatePrismaSql').addEventListener('click', async () => {
+      const btn = document.getElementById('generatePrismaSql');
+      const outputEl = document.getElementById('prismaSqlOutput');
+      const preEl = document.getElementById('prismaSqlPre');
+      const errEl = document.getElementById('prismaSqlError');
+      const copyBtn = document.getElementById('copyPrismaSql');
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+      outputEl.classList.add('hidden');
+      copyBtn.classList.add('hidden');
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+      try {
+        const res = await fetch('/api/prisma-to-sql', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repoPath: scanDir() }) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errEl.textContent = data.error || res.statusText || 'Request failed';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        preEl.textContent = data.sql || '';
+        outputEl.classList.remove('hidden');
+        copyBtn.classList.remove('hidden');
+      } catch (e) {
+        errEl.textContent = (e.message || e) + '';
+        errEl.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    });
+    document.getElementById('copyPrismaSql').addEventListener('click', () => {
+      const pre = document.getElementById('prismaSqlPre');
+      const t = pre && pre.textContent;
+      if (!t) return;
+      navigator.clipboard.writeText(t).then(() => {
+        const copyBtn = document.getElementById('copyPrismaSql');
+        const prev = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => { copyBtn.textContent = prev; }, 2000);
+      }).catch(() => {});
+    });
     document.getElementById('refreshResults').addEventListener('click', loadResults);
     document.getElementById('refreshParams').addEventListener('click', loadParams);
     document.getElementById('paramsSource').addEventListener('change', () => {
@@ -1866,7 +1998,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       command: 'scan',
       scanDir: scanDir(),
       outputPath: scanOutputPath(),
-      functionCodeDir: functionsDir(),
+      functionCodeDir: scanFunctionCodeDir(),
       apiRoutesDir: apiRoutesDir() || undefined
     }));
     document.getElementById('runValidate').addEventListener('click', () => runCommand({
