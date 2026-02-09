@@ -337,6 +337,21 @@ export async function startDashboardServer(
         const filePath = path.join(dir, file);
         try {
           await fs.unlink(filePath);
+          const remarksPath = path.join(dir, "remarks.json");
+          try {
+            const content = await fs.readFile(remarksPath, "utf-8");
+            const remarks = JSON.parse(content) as Record<string, string>;
+            if (remarks && typeof remarks === "object" && file in remarks) {
+              delete remarks[file];
+              await fs.writeFile(
+                remarksPath,
+                JSON.stringify(remarks, null, 2),
+                "utf-8"
+              );
+            }
+          } catch {
+            /* ignore */
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ deleted: file }));
         } catch (e) {
@@ -361,6 +376,12 @@ export async function startDashboardServer(
           for (const file of files) {
             await fs.unlink(path.join(dir, file));
           }
+          const remarksPath = path.join(dir, "remarks.json");
+          try {
+            await fs.unlink(remarksPath);
+          } catch {
+            /* ignore */
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ deleted: files.length, files }));
         } catch (e) {
@@ -370,6 +391,147 @@ export async function startDashboardServer(
               error: "Delete all failed",
               message: e instanceof Error ? e.message : String(e),
             }),
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/actions/remarks" && req.method === "GET") {
+        const dir = resolvePath(cwd, (query.dir || "actions/").trim());
+        const remarksPath = path.join(dir, "remarks.json");
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        try {
+          const content = await fs.readFile(remarksPath, "utf-8");
+          const raw = JSON.parse(content);
+          if (typeof raw !== "object" || raw === null) {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ remarks: {} }));
+            return;
+          }
+          const remarks: Record<string, { remark: string; resolved: boolean }> =
+            {};
+          for (const [k, v] of Object.entries(raw)) {
+            if (typeof v === "string") {
+              remarks[k] = { remark: v, resolved: false };
+            } else if (v && typeof v === "object" && "remark" in v) {
+              const o = v as { remark?: string; resolved?: boolean };
+              remarks[k] = {
+                remark: typeof o.remark === "string" ? o.remark : "",
+                resolved: Boolean(o.resolved),
+              };
+            }
+          }
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ remarks }));
+        } catch (err: unknown) {
+          if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ remarks: {} }));
+            return;
+          }
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: err instanceof Error ? err.message : String(err),
+            })
+          );
+        }
+        return;
+      }
+
+      if (pathname === "/api/actions/remarks" && req.method === "POST") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        try {
+          const params = JSON.parse(body || "{}") as {
+            dir?: string;
+            file?: string;
+            remark?: string;
+            resolved?: boolean;
+          };
+          const dir = resolvePath(cwd, (params.dir || "actions/").trim());
+          const file = typeof params.file === "string" ? params.file.trim() : "";
+          if (!file || file.includes("..") || !file.endsWith(".json")) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Invalid file" }));
+            return;
+          }
+          const remarksPath = path.join(dir, "remarks.json");
+          type RemarkEntry = string | { remark: string; resolved: boolean };
+          let rawRemarks: Record<string, RemarkEntry> = {};
+          try {
+            const content = await fs.readFile(remarksPath, "utf-8");
+            const parsed = JSON.parse(content);
+            if (parsed && typeof parsed === "object") rawRemarks = parsed;
+          } catch {
+            /* missing or invalid: start fresh */
+          }
+          const current = rawRemarks[file];
+          let remark =
+            typeof current === "string"
+              ? current
+              : current && typeof current === "object"
+                ? (current as { remark: string }).remark || ""
+                : "";
+          let resolved =
+            typeof current === "object" && current && "resolved" in current
+              ? Boolean((current as { resolved?: boolean }).resolved)
+              : false;
+          function toEntry(
+            v: RemarkEntry
+          ): { remark: string; resolved: boolean } {
+            if (typeof v === "string")
+              return { remark: v, resolved: false };
+            const o = v as { remark?: string; resolved?: boolean };
+            return {
+              remark: typeof o.remark === "string" ? o.remark : "",
+              resolved: Boolean(o.resolved),
+            };
+          }
+          if (params.remark !== undefined) {
+            if (params.remark === "") {
+              await fs.mkdir(dir, { recursive: true });
+              const next: Record<string, { remark: string; resolved: boolean }> =
+                {};
+              for (const [k, v] of Object.entries(rawRemarks)) {
+                if (k === file) continue;
+                next[k] = toEntry(v);
+              }
+              await fs.writeFile(
+                remarksPath,
+                JSON.stringify(next, null, 2),
+                "utf-8"
+              );
+              res.writeHead(200, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ ok: true, remarks: next }));
+              return;
+            }
+            remark = params.remark;
+          }
+          if (params.resolved !== undefined) resolved = params.resolved;
+          const next: Record<string, { remark: string; resolved: boolean }> = {};
+          for (const [k, v] of Object.entries(rawRemarks)) {
+            if (k === file) continue;
+            next[k] = toEntry(v);
+          }
+          next[file] = { remark, resolved };
+          await fs.mkdir(dir, { recursive: true });
+          await fs.writeFile(
+            remarksPath,
+            JSON.stringify(next, null, 2),
+            "utf-8"
+          );
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, remarks: next }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: e instanceof Error ? e.message : String(e),
+            })
           );
         }
         return;
@@ -1063,6 +1225,19 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .accordion-body { display: none; border-top: 1px solid var(--border); overflow: hidden; }
     .accordion-item.expanded .accordion-body { display: block; }
     .accordion-body .json-preview { margin: 0; border-radius: 0; border: none; max-height: 400px; padding: 20px; }
+    .action-remark-wrap { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--stat-bg); }
+    .action-remark-wrap label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+    .action-remark-wrap textarea { width: 100%; min-height: 60px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+    .action-remark-actions { margin-top: 10px; }
+    .remarks-card { margin: 24px 28px 24px 28px; }
+    .remarks-card .remarks-list { display: flex; flex-direction: column; gap: 12px; }
+    .remarks-list-empty { font-size: 13px; color: var(--text-muted); padding: 16px; background: var(--stat-bg); border-radius: 8px; border: 1px solid var(--border); }
+    .remark-item { padding: 14px 18px; background: var(--stat-bg); border-radius: 10px; border: 1px solid var(--border); }
+    .remark-item.resolved .remark-item-text { text-decoration: line-through; opacity: 0.75; }
+    .remark-item-file { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; font-family: ui-monospace, monospace; }
+    .remark-item-text { font-size: 13px; color: var(--text-muted); line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+    .remark-item-resolved-wrap { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .remark-item-resolved-wrap label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; margin: 0; }
     .endpoint { padding: 16px 20px; border-bottom: 1px solid var(--border); }
     .endpoint:last-child { border-bottom: none; }
     .endpoint-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
@@ -1308,7 +1483,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
       <div class="panel-header"><h2>Action JSON files</h2><div class="header-actions-wrap"><div class="actions-group"><span class="actions-group-label">Actions</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button></div></div><div class="actions-group"><span class="actions-group-label">Upload</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button></div></div><div class="actions-group"><span class="actions-group-label">Update serviceKey</span><div class="actions-bar"><input type="text" id="bulkServiceKey" placeholder="e.g. rm_playground_database" title="New serviceKey for selected action files" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-size:13px;min-width:180px;" /><button type="button" class="btn btn-primary" id="bulkUpdateServiceKey">Update selected</button></div></div></div></div>
-      <div class="panel-body"><ul class="accordion" id="actionsList"></ul></div>
+      <div class="panel-body">
+        <ul class="accordion" id="actionsList"></ul>
+      </div>
+      <div class="panel-config remarks-card">
+        <div class="panel-config-title">Remarks</div>
+        <div id="remarksList" class="remarks-list"></div>
+      </div>
     </div>
 
     <div id="panel-test" class="panel">
@@ -1701,8 +1882,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           list.innerHTML = '<li class="accordion-item"><div class="accordion-head">No JSON files</div></li>';
           return;
         }
+        let remarks = {};
+        try {
+          const remarksData = await api('/api/actions/remarks?dir=' + encodeURIComponent(dir));
+          remarks = remarksData.remarks || {};
+        } catch (_) { /* ignore */ }
         const trashSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
-        list.innerHTML = data.files.map(f => '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><input type="checkbox" class="action-upload-cb" data-file="' + escapeHtml(f) + '" title="Select for upload" /><span class="accordion-head-inner">' + escapeHtml(f) + '</span><button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><pre class="json-preview"></pre></div></li>').join('');
+        list.innerHTML = data.files.map(f => '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><input type="checkbox" class="action-upload-cb" data-file="' + escapeHtml(f) + '" title="Select for upload" /><span class="accordion-head-inner">' + escapeHtml(f) + '</span><button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><div class="action-remark-wrap"><label>Remark</label><textarea class="action-remark-input" data-file="' + escapeHtml(f) + '" placeholder="Add a note for this action…"></textarea><div class="action-remark-actions"><button type="button" class="btn btn-secondary btn-save-remark" data-file="' + escapeHtml(f) + '">Save remark</button><span class="action-remark-status"></span></div></div><pre class="json-preview"></pre></div></li>').join('');
         list.querySelectorAll('.accordion-item').forEach(item => {
           const head = item.querySelector('.accordion-head');
           const inner = item.querySelector('.accordion-head-inner');
@@ -1710,8 +1896,31 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           const file = head.dataset.file;
           const deleteBtn = item.querySelector('.btn-delete-file');
           const cb = item.querySelector('.action-upload-cb');
+          const saveRemarkBtn = item.querySelector('.btn-save-remark');
+          const remarkInput = item.querySelector('.action-remark-input');
+          const remarkStatus = item.querySelector('.action-remark-status');
           if (!file) return;
+          var r = remarks[file];
+          remarkInput.value = (typeof r === 'string' ? r : (r && r.remark ? r.remark : '')) || '';
           if (cb) cb.addEventListener('click', (e) => e.stopPropagation());
+          saveRemarkBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const remark = remarkInput.value.trim();
+            remarkStatus.textContent = '';
+            try {
+              const res = await fetch('/api/actions/remarks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir, file, remark }) });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error || res.statusText);
+              remarkStatus.textContent = 'Saved';
+              remarkStatus.style.color = 'var(--success, #22c55e)';
+              setTimeout(() => { remarkStatus.textContent = ''; }, 2000);
+              renderRemarksDisplay(data.remarks || {});
+            } catch (err) {
+              remarkStatus.textContent = 'Failed';
+              remarkStatus.style.color = '#ef4444';
+            }
+          });
+          remarkInput.addEventListener('keydown', (e) => e.stopPropagation());
           inner.addEventListener('click', async () => {
             const wasExpanded = item.classList.contains('expanded');
             list.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('expanded'));
@@ -1740,8 +1949,10 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             }
           });
         });
+        renderRemarksDisplay(remarks);
       } catch (e) {
         list.innerHTML = '<li class="accordion-item expanded"><div class="accordion-head"><span class="accordion-head-inner">Error</span></div><div class="accordion-body"><pre class="json-preview">' + escapeHtml(e.message) + '</pre></div></li>';
+        renderRemarksDisplay({});
       }
     }
 
@@ -1749,6 +1960,47 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       const d = document.createElement('div');
       d.textContent = s;
       return d.innerHTML;
+    }
+
+    function renderRemarksDisplay(remarks) {
+      const container = document.getElementById('remarksList');
+      if (!container) return;
+      const dir = actionsListDir();
+      const normalized = {};
+      if (remarks && typeof remarks === 'object') {
+        Object.keys(remarks).forEach(function (k) {
+          const v = remarks[k];
+          const text = typeof v === 'string' ? v : (v && v.remark ? v.remark : '');
+          const resolved = typeof v === 'object' && v && v.resolved === true;
+          if (text && String(text).trim()) normalized[k] = { remark: String(text).trim(), resolved: !!resolved };
+        });
+      }
+      const keys = Object.keys(normalized).sort(function (a, b) {
+        const ra = normalized[a].resolved;
+        const rb = normalized[b].resolved;
+        if (ra !== rb) return ra ? 1 : -1;
+        return a.localeCompare(b);
+      });
+      if (keys.length === 0) {
+        container.innerHTML = '<div class="remarks-list-empty">No remarks. Add notes in the accordion above and click Save remark.</div>';
+        return;
+      }
+      container.innerHTML = keys.map(function (file) {
+        const entry = normalized[file];
+        const text = entry.remark;
+        const resolved = entry.resolved;
+        const resolvedCls = resolved ? ' remark-item resolved' : ' remark-item';
+        return '<div class="' + resolvedCls + '" data-file="' + escapeHtml(file) + '"><div class="remark-item-file">' + escapeHtml(file) + '</div><div class="remark-item-text">' + escapeHtml(text) + '</div><div class="remark-item-resolved-wrap"><label><input type="checkbox" class="remark-resolved-cb" data-file="' + escapeHtml(file) + '" ' + (resolved ? 'checked' : '') + ' /> Resolved</label></div></div>';
+      }).join('');
+      container.querySelectorAll('.remark-resolved-cb').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          const file = cb.getAttribute('data-file');
+          const resolved = cb.checked;
+          fetch('/api/actions/remarks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir, file, resolved }) }).then(function (res) { return res.json(); }).then(function (data) {
+            if (data && data.remarks) renderRemarksDisplay(data.remarks);
+          }).catch(function () {});
+        });
+      });
     }
 
     function setRunLog(text, isError) {
