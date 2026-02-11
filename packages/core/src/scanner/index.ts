@@ -3,3 +3,4 @@
  */
 
 export * from './file-scanner';
+export * from './api-dir-resolver';

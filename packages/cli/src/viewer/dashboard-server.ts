@@ -189,8 +189,27 @@ export async function startDashboardServer(
             .filter((e) => e.isFile() && e.name.endsWith(".json"))
             .map((e) => e.name)
             .sort();
+          const fileMeta: Record<
+            string,
+            { uploaded: boolean; uploadedAt?: string; working: boolean; workingAt?: string }
+          > = {};
+          for (const file of files) {
+            try {
+              const raw = await fs.readFile(path.join(dir, file), "utf-8");
+              const obj = JSON.parse(raw) as Record<string, unknown>;
+              const uploaded = obj.uploaded === true;
+              const uploadedAt =
+                typeof obj.uploadedAt === "string" ? obj.uploadedAt : undefined;
+              const working = obj.working === true;
+              const workingAt =
+                typeof obj.workingAt === "string" ? obj.workingAt : undefined;
+              fileMeta[file] = { uploaded, uploadedAt, working, workingAt };
+            } catch {
+              fileMeta[file] = { uploaded: false, working: false };
+            }
+          }
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ dir, files }));
+          res.end(JSON.stringify({ dir, files, fileMeta }));
         } catch (e) {
           res.writeHead(404, { "Content-Type": "application/json" });
           res.end(
@@ -217,6 +236,10 @@ export async function startDashboardServer(
             serviceKey: string;
             actionName: string;
             displayName?: string;
+            uploaded?: boolean;
+            uploadedAt?: string;
+            working?: boolean;
+            workingAt?: string;
           }> = [];
           for (const file of files) {
             try {
@@ -230,8 +253,23 @@ export async function startDashboardServer(
                 typeof obj.displayName === "string"
                   ? obj.displayName
                   : undefined;
+              const uploaded = obj.uploaded === true;
+              const uploadedAt =
+                typeof obj.uploadedAt === "string" ? obj.uploadedAt : undefined;
+              const working = obj.working === true;
+              const workingAt =
+                typeof obj.workingAt === "string" ? obj.workingAt : undefined;
               if (serviceKey && actionName) {
-                endpoints.push({ file, serviceKey, actionName, displayName });
+                endpoints.push({
+                  file,
+                  serviceKey,
+                  actionName,
+                  displayName,
+                  uploaded,
+                  uploadedAt,
+                  working,
+                  workingAt,
+                });
               }
             } catch {
               // skip invalid files
@@ -526,6 +564,120 @@ export async function startDashboardServer(
           );
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, remarks: next }));
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: e instanceof Error ? e.message : String(e),
+            })
+          );
+        }
+        return;
+      }
+
+      if (
+        pathname === "/api/actions/uploaded" &&
+        (req.method === "POST" || req.method === "PATCH")
+      ) {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        try {
+          const params = JSON.parse(body || "{}") as {
+            dir?: string;
+            file?: string;
+            uploaded?: boolean;
+          };
+          const dir = resolvePath(cwd, (params.dir || "actions/").trim());
+          const file =
+            typeof params.file === "string" ? params.file.trim() : "";
+          if (!file || file.includes("..") || !file.endsWith(".json")) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Invalid file" }));
+            return;
+          }
+          const uploaded = params.uploaded === true;
+          const filePath = path.join(dir, file);
+          const raw = await fs.readFile(filePath, "utf-8");
+          const obj = JSON.parse(raw) as Record<string, unknown>;
+          obj.uploaded = uploaded;
+          if (uploaded) {
+            obj.uploadedAt = new Date().toISOString();
+          } else {
+            delete obj.uploadedAt;
+          }
+          await fs.writeFile(
+            filePath,
+            JSON.stringify(obj, null, 2),
+            "utf-8"
+          );
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              ok: true,
+              file,
+              uploaded,
+              uploadedAt: obj.uploadedAt ?? undefined,
+            })
+          );
+        } catch (e) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              error: e instanceof Error ? e.message : String(e),
+            })
+          );
+        }
+        return;
+      }
+
+      if (
+        pathname === "/api/actions/working" &&
+        (req.method === "POST" || req.method === "PATCH")
+      ) {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        try {
+          const params = JSON.parse(body || "{}") as {
+            dir?: string;
+            file?: string;
+            working?: boolean;
+          };
+          const dir = resolvePath(cwd, (params.dir || "actions/").trim());
+          const file =
+            typeof params.file === "string" ? params.file.trim() : "";
+          if (!file || file.includes("..") || !file.endsWith(".json")) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "Invalid file" }));
+            return;
+          }
+          const working = params.working === true;
+          const filePath = path.join(dir, file);
+          const raw = await fs.readFile(filePath, "utf-8");
+          const obj = JSON.parse(raw) as Record<string, unknown>;
+          obj.working = working;
+          if (working) {
+            obj.workingAt = new Date().toISOString();
+          } else {
+            delete obj.workingAt;
+          }
+          await fs.writeFile(
+            filePath,
+            JSON.stringify(obj, null, 2),
+            "utf-8"
+          );
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              ok: true,
+              file,
+              working,
+              workingAt: obj.workingAt ?? undefined,
+            })
+          );
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(
@@ -988,6 +1140,7 @@ export async function startDashboardServer(
           outputPath?: string;
           functionCodeDir?: string;
           apiRoutesDir?: string;
+          generateActions?: boolean;
           functionsDir?: string;
           actionsInputDir?: string;
           actionsOutputDir?: string;
@@ -1014,6 +1167,12 @@ export async function startDashboardServer(
           ];
           if (params.apiRoutesDir?.trim()) {
             args.push("--api-routes-dir", params.apiRoutesDir.trim());
+          }
+          if (params.generateActions) {
+            args.push("--generate-actions");
+            if (params.actionsOutputDir?.trim()) {
+              args.push("--actions-output-dir", params.actionsOutputDir.trim());
+            }
           }
         } else if (command === "validate-functions") {
           const inputDir = params.functionsDir || "functions/";
@@ -1217,6 +1376,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .accordion-head-inner::before { content: '▶'; font-size: 10px; color: var(--arrow); transition: transform 0.2s; flex-shrink: 0; }
     .accordion-item.expanded .accordion-head-inner::before { transform: rotate(90deg); }
     .accordion-head .action-upload-cb { margin-right: 10px; flex-shrink: 0; cursor: pointer; }
+    .action-uploaded-badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--success-bg, #dcfce7); color: var(--success, #16a34a); flex-shrink: 0; }
+    .action-working-badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #dbeafe; color: #2563eb; flex-shrink: 0; }
+    .action-mark-uploaded-btn { font-size: 12px; padding: 4px 10px; margin-right: 6px; flex-shrink: 0; }
+    .action-mark-working-btn { font-size: 12px; padding: 4px 10px; margin-right: 6px; flex-shrink: 0; }
+    #actionsUploadFilter { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 13px; }
     .btn-icon { padding: 6px; border: none; border-radius: 6px; background: transparent; color: var(--arrow); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .btn-icon:hover { background: var(--hover-strong); color: #ef4444; }
     .btn-icon svg { width: 16px; height: 16px; }
@@ -1230,6 +1394,35 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .action-remark-wrap textarea { width: 100%; min-height: 60px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
     .action-remark-actions { margin-top: 10px; }
     .remarks-card { margin: 24px 28px 24px 28px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .postman-test-panel { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .postman-url-row { display: flex; align-items: stretch; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+    .postman-method-wrap { flex-shrink: 0; }
+    .postman-method-wrap select { padding: 12px 14px; border: none; background: var(--stat-bg); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; border-right: 1px solid var(--border); min-width: 100px; }
+    .postman-url-wrap { flex: 1; min-width: 0; }
+    .postman-url-wrap input { width: 100%; padding: 12px 16px; border: none; background: var(--surface); color: var(--text); font-size: 13px; font-family: ui-monospace, monospace; box-sizing: border-box; }
+    .postman-send-btn { border-radius: 0; margin: 0; flex-shrink: 0; }
+    .postman-action-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+    .postman-action-select-wrap { min-width: 220px; }
+    .postman-action-select-wrap select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 13px; width: 100%; }
+    .postman-base-url-wrap { flex: 1; min-width: 200px; }
+    .postman-base-url-wrap input { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 12px; width: 100%; font-family: ui-monospace, monospace; box-sizing: border-box; }
+    .postman-request-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+    .postman-tab { padding: 8px 16px; font-size: 13px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text-muted); cursor: pointer; }
+    .postman-tab:hover { color: var(--text); background: var(--hover); }
+    .postman-tab.active { color: var(--text); font-weight: 600; background: var(--stat-bg); border-color: var(--border); }
+    .postman-tab-panels { margin-bottom: 16px; }
+    .postman-tab-panel { display: none; }
+    .postman-tab-panel.active { display: block; }
+    .postman-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .postman-textarea { width: 100%; min-height: 120px; padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--code-bg); color: var(--text); font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; box-sizing: border-box; }
+    .postman-response { border-top: 1px solid var(--border); padding-top: 16px; }
+    .postman-response-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .postman-response-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .postman-response-status { font-size: 13px; font-weight: 600; }
+    .postman-response-status.success { color: #22c55e; }
+    .postman-response-status.error { color: #ef4444; }
+    .postman-response-body { min-height: 100px; max-height: 280px; }
     .remarks-card .remarks-list { display: flex; flex-direction: column; gap: 12px; }
     .remarks-list-empty { font-size: 13px; color: var(--text-muted); padding: 16px; background: var(--stat-bg); border-radius: 8px; border: 1px solid var(--border); }
     .remark-item { padding: 14px 18px; background: var(--stat-bg); border-radius: 10px; border: 1px solid var(--border); }
@@ -1299,7 +1492,6 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       <button type="button" data-tab="params">Params</button>
       <button type="button" data-tab="functions">Functions</button>
       <button type="button" data-tab="actions">Actions</button>
-      <button type="button" data-tab="test">Test</button>
     </div>
 
     <div class="panels-wrap">
@@ -1313,7 +1505,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div class="input-group">
             <label for="apiRoutesDir">API routes dir</label>
-            <input type="text" id="apiRoutesDir" value="src/app/api" placeholder="e.g. src/app/api" title="Directory to scan for API route handlers, relative to repo (overrides config)" />
+            <input type="text" id="apiRoutesDir" value="src/app/api" placeholder="e.g. src/app/api" title="Directory to scan: all files here and their related imports are included. With ANTHROPIC_API_KEY or OPENAI_API_KEY set, AI discovers extra dependencies so nothing is missed." />
           </div>
           <div class="input-group">
             <label for="scanOutputPath">Scan output file</label>
@@ -1322,6 +1514,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           <div class="input-group">
             <label for="scanFunctionCodeDir">Functions output dir</label>
             <input type="text" id="scanFunctionCodeDir" value="functions/" placeholder="e.g. functions/" title="Directory where parsed function JSON files will be written (relative to repo)" />
+          </div>
+          <div class="input-group">
+            <label><input type="checkbox" id="scanGenerateActions" title="Generate action JSON from each endpoint after scan (includes inner routes). Requires API keys." /> Generate action JSON after scan</label>
+          </div>
+          <div class="input-group" id="scanActionsOutputGroup">
+            <label for="scanActionsOutputDir">Actions output dir</label>
+            <input type="text" id="scanActionsOutputDir" value="actions" placeholder="e.g. actions" title="Used when Generate action JSON after scan is checked" />
           </div>
         </div>
         <div class="actions-bar" style="margin-top:16px;">
@@ -1482,7 +1681,54 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
       </div>
-      <div class="panel-header"><h2>Action JSON files</h2><div class="header-actions-wrap"><div class="actions-group"><span class="actions-group-label">Actions</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button></div></div><div class="actions-group"><span class="actions-group-label">Upload</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button></div></div><div class="actions-group"><span class="actions-group-label">Update serviceKey</span><div class="actions-bar"><input type="text" id="bulkServiceKey" placeholder="e.g. rm_playground_database" title="New serviceKey for selected action files" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-size:13px;min-width:180px;" /><button type="button" class="btn btn-primary" id="bulkUpdateServiceKey">Update selected</button></div></div></div></div>
+      <div class="panel-config postman-test-panel">
+        <div class="panel-config-title">Test endpoint</div>
+        <div class="postman-url-row">
+          <div class="postman-method-wrap">
+            <label for="testMethod" class="sr-only">Method</label>
+            <select id="testMethod"><option value="GET">GET</option><option value="POST" selected>POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option></select>
+          </div>
+          <div class="postman-url-wrap">
+            <label for="testUrl" class="sr-only">URL</label>
+            <input type="text" id="testUrl" placeholder="https://.../api/v2/execute/serviceKey/actionName" />
+          </div>
+          <button type="button" class="btn btn-primary postman-send-btn" id="testSend">Send</button>
+        </div>
+        <div class="postman-action-row">
+          <div class="input-group postman-action-select-wrap">
+            <label for="testActionSelect">Action</label>
+            <select id="testActionSelect"><option value="">Choose an action…</option></select>
+          </div>
+          <div class="input-group postman-base-url-wrap">
+            <label for="testBaseUrl">Execute base URL</label>
+            <input type="text" id="testBaseUrl" value="https://refreshing-amazement-production.up.railway.app/api/v2/execute" title="Base URL for execute API" />
+          </div>
+          <button type="button" class="btn btn-secondary" id="testLoadFromDir">Load endpoints</button>
+          <button type="button" class="btn btn-secondary" id="testSuggestAi" title="Suggest params and body from action schema (requires API key)">Suggest with AI</button>
+        </div>
+        <div class="postman-request-tabs">
+          <button type="button" class="postman-tab active" data-postman-tab="params">Params</button>
+          <button type="button" class="postman-tab" data-postman-tab="body">Body</button>
+        </div>
+        <div class="postman-tab-panels">
+          <div id="postmanPanelParams" class="postman-tab-panel active">
+            <label for="testQueryParams" class="postman-label">Query params (JSON)</label>
+            <textarea id="testQueryParams" class="postman-textarea" placeholder="{}" spellcheck="false"></textarea>
+          </div>
+          <div id="postmanPanelBody" class="postman-tab-panel">
+            <label for="testBody" class="postman-label">Body (JSON)</label>
+            <textarea id="testBody" class="postman-textarea" placeholder="{}" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <div class="postman-response">
+          <div class="postman-response-header">
+            <span class="postman-response-title">Response</span>
+            <span id="testResponseStatus" class="postman-response-status"></span>
+          </div>
+          <pre class="log-box test-response postman-response-body" id="testResponse">—</pre>
+        </div>
+      </div>
+      <div class="panel-header"><h2>Action JSON files</h2><div class="header-actions-wrap"><div class="actions-group"><span class="actions-group-label">Actions</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="refreshActions">Refresh</button><button type="button" class="btn btn-danger" id="deleteAllActions" title="Delete all JSON files in this directory"><span style="display:inline-flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg> Delete All</span></button></div></div><div class="actions-group"><span class="actions-group-label">Upload</span><div class="actions-bar"><button type="button" class="btn btn-secondary" id="selectAllActions">Select all</button><button type="button" class="btn btn-secondary" id="selectNoneActions">Select none</button><button type="button" class="btn btn-primary" id="runUpload">Upload selected</button></div></div><div class="actions-group"><span class="actions-group-label">Update serviceKey</span><div class="actions-bar"><input type="text" id="bulkServiceKey" placeholder="e.g. rm_playground_database" title="New serviceKey for selected action files" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--stat-bg);color:var(--text);font-size:13px;min-width:180px;" /><button type="button" class="btn btn-primary" id="bulkUpdateServiceKey">Update selected</button></div></div><div class="actions-group"><span class="actions-group-label">Show</span><div class="actions-bar"><select id="actionsUploadFilter" title="Filter by status"><option value="all">All</option><option value="not-uploaded">Not uploaded</option><option value="uploaded">Uploaded</option><option value="not-working">Not working</option><option value="working">Working</option></select></div></div></div></div>
       <div class="panel-body">
         <ul class="accordion" id="actionsList"></ul>
       </div>
@@ -1490,61 +1736,12 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         <div class="panel-config-title">Remarks</div>
         <div id="remarksList" class="remarks-list"></div>
       </div>
-    </div>
-
-    <div id="panel-test" class="panel">
-      <div class="panel-config">
-        <div class="panel-config-title">Test settings</div>
-        <div class="inputs">
-          <div class="input-group">
-            <label for="testBaseUrl">Execute base URL</label>
-            <input type="text" id="testBaseUrl" value="https://refreshing-amazement-production.up.railway.app/api/v2/execute" title="Base URL for execute API" />
-          </div>
-          <div class="input-group">
-            <label for="testActionsDir">Actions dir</label>
-            <input type="text" id="testActionsDir" value="actions/" placeholder="e.g. actions/repo-name" title="Directory to load endpoints from" />
-          </div>
-        </div>
-        <div class="actions-bar test-config-actions">
-          <button type="button" class="btn btn-primary" id="testLoadFromDir">Load from actions directory</button>
-        </div>
-      </div>
-      <div class="panel-header"><h2>Test</h2></div>
       <div class="test-subtabs">
         <button type="button" class="test-subtab active" data-test-subtab="endpoints">Endpoints</button>
         <button type="button" class="test-subtab" data-test-subtab="tested">Tested</button>
       </div>
       <div class="panel-body panel-body-test">
         <div id="testSubtabEndpoints" class="test-subtab-panel">
-          <div class="test-form hidden" id="testForm">
-            <div class="test-form-section">
-              <h3 class="test-form-section-title">Request</h3>
-              <div class="test-form-row">
-                <label>URL</label>
-                <input type="text" id="testUrl" readonly />
-              </div>
-              <div class="test-form-row">
-                <label>Method</label>
-                <input type="text" id="testMethod" value="POST" />
-              </div>
-              <div class="test-form-row">
-                <label>Query params (JSON object)</label>
-                <textarea id="testQueryParams" placeholder="{}"></textarea>
-              </div>
-              <div class="test-form-row">
-                <label>Body (JSON)</label>
-                <textarea id="testBody" placeholder="{}"></textarea>
-              </div>
-              <div class="test-form-actions">
-                <button type="button" class="btn btn-primary" id="testSuggestAi">Suggest with AI</button>
-                <button type="button" class="btn btn-primary" id="testSend">Send request</button>
-              </div>
-            </div>
-            <div class="test-form-section test-form-section-response">
-              <h3 class="test-form-section-title">Response</h3>
-              <pre class="log-box test-response" id="testResponse">—</pre>
-            </div>
-          </div>
           <div class="test-endpoints-wrap">
             <h3 class="test-endpoints-heading">Endpoints</h3>
             <ul class="test-endpoints-list" id="testEndpointsList"></ul>
@@ -1613,7 +1810,6 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     const appName = () => document.getElementById('appName').value;
     const serviceKey = () => document.getElementById('serviceKey').value.trim();
     const testBaseUrl = () => document.getElementById('testBaseUrl').value.trim().replace(/\\/$/, '');
-    const testActionsDir = () => document.getElementById('testActionsDir').value.trim() || 'actions/';
     const testedPath = () => 'actions/tested.json';
 
     const TEST_STORAGE_KEY = 'dashboard-test-endpoints';
@@ -1629,6 +1825,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     let currentTestEndpoint = null;
     let pendingTestedAdd = null;
+    let lastTestEndpoints = [];
 
     async function loadTestedList() {
       const container = document.getElementById('testedList');
@@ -1661,23 +1858,38 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 
     function renderTestEndpoints() {
       const list = document.getElementById('testEndpointsList');
+      const selectEl = document.getElementById('testActionSelect');
       const endpoints = getTestEndpoints();
+      lastTestEndpoints = endpoints;
+      if (selectEl) {
+        selectEl.innerHTML = '<option value="">Choose an action…</option>' + endpoints.map((ep, i) => '<option value="' + i + '">' + escapeHtml(ep.serviceKey) + ' / ' + escapeHtml(ep.actionName) + (ep.displayName ? ' — ' + escapeHtml(ep.displayName) : '') + '</option>').join('');
+      }
       if (!endpoints.length) {
-        list.innerHTML = '<li style="padding:16px;color:var(--text-muted);">No endpoints. Click "Load from actions directory" or upload actions to populate.</li>';
+        list.innerHTML = '<li style="padding:16px;color:var(--text-muted);">No endpoints. Click "Load endpoints" above to populate.</li>';
         return;
       }
-      list.innerHTML = endpoints.map(ep => '<li data-service-key="' + escapeHtml(ep.serviceKey) + '" data-action-name="' + escapeHtml(ep.actionName) + '" data-file="' + escapeHtml(ep.file || '') + '" data-display-name="' + escapeHtml(ep.displayName || '') + '"><div class="test-endpoint-info"><strong>' + escapeHtml(ep.serviceKey) + ' / ' + escapeHtml(ep.actionName) + '</strong>' + (ep.displayName ? '<span>' + escapeHtml(ep.displayName) + '</span>' : '') + '</div><button type="button" class="btn btn-primary btn-test-endpoint">Test</button></li>').join('');
+      list.innerHTML = endpoints.map((ep, i) => '<li data-index="' + i + '" data-service-key="' + escapeHtml(ep.serviceKey) + '" data-action-name="' + escapeHtml(ep.actionName) + '" data-file="' + escapeHtml(ep.file || '') + '" data-display-name="' + escapeHtml(ep.displayName || '') + '"><div class="test-endpoint-info"><strong>' + escapeHtml(ep.serviceKey) + ' / ' + escapeHtml(ep.actionName) + '</strong>' + (ep.displayName ? '<span>' + escapeHtml(ep.displayName) + '</span>' : '') + '</div><button type="button" class="btn btn-primary btn-test-endpoint">Test</button></li>').join('');
       list.querySelectorAll('.btn-test-endpoint').forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
           const li = btn.closest('li');
           if (!li) return;
-          currentTestEndpoint = { serviceKey: li.dataset.serviceKey, actionName: li.dataset.actionName, file: li.dataset.file || null, displayName: li.dataset.displayName || null };
-          const url = testBaseUrl() + '/' + currentTestEndpoint.serviceKey + '/' + currentTestEndpoint.actionName;
-          document.getElementById('testUrl').value = url;
+          const idx = parseInt(li.dataset.index, 10);
+          if (selectEl) selectEl.value = String(idx);
+          const ep = lastTestEndpoints[idx];
+          if (!ep) return;
+          currentTestEndpoint = { serviceKey: ep.serviceKey, actionName: ep.actionName, file: ep.file || null, displayName: ep.displayName || null };
+          document.getElementById('testUrl').value = testBaseUrl() + '/' + ep.serviceKey + '/' + ep.actionName;
           document.getElementById('testQueryParams').value = '{}';
           document.getElementById('testBody').value = '{}';
           document.getElementById('testResponse').textContent = '—';
-          document.getElementById('testForm').classList.remove('hidden');
+          document.getElementById('testResponseStatus').textContent = '';
+          try {
+            if (ep.file) {
+              const actionJson = await api('/api/actions/file?dir=' + encodeURIComponent(actionsListDir()) + '&file=' + encodeURIComponent(ep.file));
+              const method = (actionJson && actionJson.httpMethod) ? String(actionJson.httpMethod) : 'POST';
+              document.getElementById('testMethod').value = method;
+            }
+          } catch (_) { document.getElementById('testMethod').value = 'POST'; }
         });
       });
     }
@@ -1876,10 +2088,16 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     async function loadActions() {
       const list = document.getElementById('actionsList');
       const dir = actionsListDir();
+      const filterEl = document.getElementById('actionsUploadFilter');
+      const filterValue = (filterEl && filterEl.value) || 'all';
       try {
         const data = await api('/api/actions/list?dir=' + encodeURIComponent(dir));
         if (!data.files.length) {
           list.innerHTML = '<li class="accordion-item"><div class="accordion-head">No JSON files</div></li>';
+          if (filterEl && !filterEl._uploadFilterBound) {
+            filterEl._uploadFilterBound = true;
+            filterEl.addEventListener('change', loadActions);
+          }
           return;
         }
         let remarks = {};
@@ -1887,19 +2105,80 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           const remarksData = await api('/api/actions/remarks?dir=' + encodeURIComponent(dir));
           remarks = remarksData.remarks || {};
         } catch (_) { /* ignore */ }
+        const fileMeta = data.fileMeta || {};
+        const filteredFiles = data.files.filter(function(f) {
+          const meta = fileMeta[f];
+          const uploaded = meta && meta.uploaded;
+          const working = meta && meta.working;
+          if (filterValue === 'uploaded') return uploaded;
+          if (filterValue === 'not-uploaded') return !uploaded;
+          if (filterValue === 'working') return working;
+          if (filterValue === 'not-working') return !working;
+          return true;
+        });
+        if (filterEl && !filterEl._uploadFilterBound) {
+          filterEl._uploadFilterBound = true;
+          filterEl.addEventListener('change', loadActions);
+        }
         const trashSvg = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
-        list.innerHTML = data.files.map(f => '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><input type="checkbox" class="action-upload-cb" data-file="' + escapeHtml(f) + '" title="Select for upload" /><span class="accordion-head-inner">' + escapeHtml(f) + '</span><button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><div class="action-remark-wrap"><label>Remark</label><textarea class="action-remark-input" data-file="' + escapeHtml(f) + '" placeholder="Add a note for this action…"></textarea><div class="action-remark-actions"><button type="button" class="btn btn-secondary btn-save-remark" data-file="' + escapeHtml(f) + '">Save remark</button><span class="action-remark-status"></span></div></div><pre class="json-preview"></pre></div></li>').join('');
+        function rowHtml(f) {
+          const meta = fileMeta[f] || {};
+          const uploaded = !!meta.uploaded;
+          const uploadedAt = meta.uploadedAt || '';
+          const working = !!meta.working;
+          const workingAt = meta.workingAt || '';
+          const badge = uploaded ? '<span class="action-uploaded-badge" title="' + escapeHtml(uploadedAt) + '">Uploaded</span>' : '';
+          const workingBadge = working ? '<span class="action-working-badge" title="' + escapeHtml(workingAt) + '">Working</span>' : '';
+          const markBtnLabel = uploaded ? 'Unmark uploaded' : 'Mark uploaded';
+          const markBtn = '<button type="button" class="btn btn-secondary action-mark-uploaded-btn" data-file="' + escapeHtml(f) + '" data-uploaded="' + (uploaded ? '1' : '0') + '" title="' + (uploaded ? 'Remove uploaded flag' : 'Mark as uploaded (tracking only)') + '">' + markBtnLabel + '</button>';
+          const markWorkingBtnLabel = working ? 'Unmark working' : 'Mark working';
+          const markWorkingBtn = '<button type="button" class="btn btn-secondary action-mark-working-btn" data-file="' + escapeHtml(f) + '" data-working="' + (working ? '1' : '0') + '" title="' + (working ? 'Remove working flag' : 'Mark as working (tested/verified)') + '">' + markWorkingBtnLabel + '</button>';
+          return '<li class="accordion-item"><div class="accordion-head" data-file="' + escapeHtml(f) + '"><input type="checkbox" class="action-upload-cb" data-file="' + escapeHtml(f) + '" title="Select for upload" /><span class="accordion-head-inner">' + badge + workingBadge + escapeHtml(f) + '</span>' + markBtn + markWorkingBtn + '<button type="button" class="btn-icon btn-delete-file" title="Delete" aria-label="Delete">' + trashSvg + ' Delete</button></div><div class="accordion-body"><div class="action-remark-wrap"><label>Remark</label><textarea class="action-remark-input" data-file="' + escapeHtml(f) + '" placeholder="Add a note for this action…"></textarea><div class="action-remark-actions"><button type="button" class="btn btn-secondary btn-save-remark" data-file="' + escapeHtml(f) + '">Save remark</button><span class="action-remark-status"></span></div></div><pre class="json-preview"></pre></div></li>';
+        }
+        list.innerHTML = filteredFiles.length ? filteredFiles.map(rowHtml).join('') : '<li class="accordion-item"><div class="accordion-head">No actions match filter</div></li>';
         list.querySelectorAll('.accordion-item').forEach(item => {
           const head = item.querySelector('.accordion-head');
           const inner = item.querySelector('.accordion-head-inner');
           const body = item.querySelector('.accordion-body .json-preview');
           const file = head.dataset.file;
           const deleteBtn = item.querySelector('.btn-delete-file');
+          const markUploadedBtn = item.querySelector('.action-mark-uploaded-btn');
+          const markWorkingBtn = item.querySelector('.action-mark-working-btn');
           const cb = item.querySelector('.action-upload-cb');
           const saveRemarkBtn = item.querySelector('.btn-save-remark');
           const remarkInput = item.querySelector('.action-remark-input');
           const remarkStatus = item.querySelector('.action-remark-status');
           if (!file) return;
+          if (markUploadedBtn) {
+            markUploadedBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const currentlyUploaded = markUploadedBtn.getAttribute('data-uploaded') === '1';
+              const newUploaded = !currentlyUploaded;
+              try {
+                const res = await fetch('/api/actions/uploaded', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir, file, uploaded: newUploaded }) });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || res.statusText);
+                loadActions();
+              } catch (err) {
+                alert('Failed to update: ' + (err.message || err));
+              }
+            });
+          }
+          if (markWorkingBtn) {
+            markWorkingBtn.addEventListener('click', async (e) => {
+              e.stopPropagation();
+              const currentlyWorking = markWorkingBtn.getAttribute('data-working') === '1';
+              const newWorking = !currentlyWorking;
+              try {
+                const res = await fetch('/api/actions/working', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir, file, working: newWorking }) });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || res.statusText);
+                loadActions();
+              } catch (err) {
+                alert('Failed to update: ' + (err.message || err));
+              }
+            });
+          }
           var r = remarks[file];
           remarkInput.value = (typeof r === 'string' ? r : (r && r.remark ? r.remark : '')) || '';
           if (cb) cb.addEventListener('click', (e) => e.stopPropagation());
@@ -2048,7 +2327,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         }
         setRunLog(logText.trim() || '(no output)', code !== 0);
         if (code === 0) {
-          if (body.command === 'scan') { loadScan(); loadResults(); loadParams(); loadFunctions(); }
+          if (body.command === 'scan') { loadScan(); loadResults(); loadParams(); loadFunctions(); loadActions(); }
           if (body.command === 'validate-functions' || body.command === 'actions') loadFunctions();
           if (body.command === 'actions' || body.command === 'upload-actions') loadActions();
           if (body.command === 'upload-actions' && body.uploadFiles?.length) {
@@ -2251,7 +2530,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       scanDir: scanDir(),
       outputPath: scanOutputPath(),
       functionCodeDir: scanFunctionCodeDir(),
-      apiRoutesDir: apiRoutesDir() || undefined
+      apiRoutesDir: apiRoutesDir() || undefined,
+      generateActions: document.getElementById('scanGenerateActions').checked,
+      actionsOutputDir: document.getElementById('scanActionsOutputDir').value.trim() || undefined
     }));
     document.getElementById('runValidate').addEventListener('click', () => runCommand({
       command: 'validate-functions',
@@ -2326,9 +2607,45 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       }
     });
 
+    document.querySelectorAll('.postman-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const id = tab.dataset.postmanTab;
+        document.querySelectorAll('.postman-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.postman-tab-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panel = id === 'params' ? document.getElementById('postmanPanelParams') : document.getElementById('postmanPanelBody');
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    document.getElementById('testActionSelect').addEventListener('change', async () => {
+      const selectEl = document.getElementById('testActionSelect');
+      const val = selectEl.value;
+      if (val === '') {
+        currentTestEndpoint = null;
+        document.getElementById('testUrl').value = '';
+        return;
+      }
+      const idx = parseInt(val, 10);
+      const ep = lastTestEndpoints[idx];
+      if (!ep) return;
+      currentTestEndpoint = { serviceKey: ep.serviceKey, actionName: ep.actionName, file: ep.file || null, displayName: ep.displayName || null };
+      document.getElementById('testUrl').value = testBaseUrl() + '/' + ep.serviceKey + '/' + ep.actionName;
+      document.getElementById('testQueryParams').value = '{}';
+      document.getElementById('testBody').value = '{}';
+      document.getElementById('testResponse').textContent = '—';
+      document.getElementById('testResponseStatus').textContent = '';
+      try {
+        if (ep.file) {
+          const actionJson = await api('/api/actions/file?dir=' + encodeURIComponent(actionsListDir()) + '&file=' + encodeURIComponent(ep.file));
+          document.getElementById('testMethod').value = (actionJson && actionJson.httpMethod) ? String(actionJson.httpMethod) : 'POST';
+        }
+      } catch (_) { document.getElementById('testMethod').value = 'POST'; }
+    });
+
     document.getElementById('testLoadFromDir').addEventListener('click', async () => {
       try {
-        const data = await api('/api/actions/endpoints?dir=' + encodeURIComponent(testActionsDir()));
+        const data = await api('/api/actions/endpoints?dir=' + encodeURIComponent(actionsListDir()));
         const endpoints = (data.endpoints || []).map(ep => ({ serviceKey: ep.serviceKey, actionName: ep.actionName, displayName: ep.displayName, file: ep.file }));
         saveTestEndpoints(endpoints);
         renderTestEndpoints();
@@ -2351,13 +2668,13 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     }
     document.getElementById('testSuggestAi').addEventListener('click', async () => {
       if (!currentTestEndpoint || !currentTestEndpoint.file) {
-        alert('Load from actions directory first so the endpoint has a file reference for AI suggestion.');
+        alert('Choose an action from the dropdown (or click "Load endpoints" first).');
         return;
       }
       const btn = document.getElementById('testSuggestAi');
       setButtonLoading(btn, true);
       try {
-        const actionJson = await api('/api/actions/file?dir=' + encodeURIComponent(testActionsDir()) + '&file=' + encodeURIComponent(currentTestEndpoint.file));
+        const actionJson = await api('/api/actions/file?dir=' + encodeURIComponent(actionsListDir()) + '&file=' + encodeURIComponent(currentTestEndpoint.file));
         const res = await fetch('/api/test/suggest-payload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionJson }) });
         if (!res.ok) throw new Error(await res.text());
         const result = await res.json();
@@ -2365,7 +2682,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         document.getElementById('testQueryParams').value = JSON.stringify(result.queryParams || {}, null, 2);
       } catch (e) {
         document.getElementById('testResponse').textContent = 'Suggest failed: ' + (e.message || e);
-        document.getElementById('testResponse').className = 'log-box test-response error';
+        document.getElementById('testResponse').className = 'log-box test-response postman-response-body error';
+        document.getElementById('testResponseStatus').textContent = '';
       } finally {
         setButtonLoading(btn, false);
       }
@@ -2380,27 +2698,35 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         const qRaw = document.getElementById('testQueryParams').value.trim();
         if (qRaw) queryParams = JSON.parse(qRaw);
       } catch (e) {
+        document.getElementById('testResponseStatus').textContent = 'Error';
+        document.getElementById('testResponseStatus').className = 'postman-response-status error';
         document.getElementById('testResponse').textContent = 'Invalid query params JSON: ' + e.message;
-        document.getElementById('testResponse').className = 'log-box test-response error';
+        document.getElementById('testResponse').className = 'log-box test-response postman-response-body error';
         return;
       }
       const sendBtn = document.getElementById('testSend');
+      const statusEl = document.getElementById('testResponseStatus');
       setButtonLoading(sendBtn, true);
+      statusEl.textContent = '';
       try {
         const res = await fetch('/api/test/execute', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, method, body: body || undefined, queryParams }) });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
-        const out = 'Status: ' + data.status + ' ' + data.statusText + '\\n\\n' + (typeof data.body === 'string' ? data.body : JSON.stringify(data.body, null, 2));
+        statusEl.textContent = data.status + ' ' + (data.statusText || '');
+        statusEl.className = 'postman-response-status' + (data.ok ? ' success' : ' error');
+        const out = typeof data.body === 'string' ? data.body : JSON.stringify(data.body, null, 2);
         document.getElementById('testResponse').textContent = out;
-        document.getElementById('testResponse').className = 'log-box test-response' + (data.ok ? ' success' : ' error');
+        document.getElementById('testResponse').className = 'log-box test-response postman-response-body' + (data.ok ? ' success' : ' error');
         if (data.status === 200 && currentTestEndpoint?.serviceKey && currentTestEndpoint?.actionName) {
-          pendingTestedAdd = { serviceKey: currentTestEndpoint.serviceKey, actionName: currentTestEndpoint.actionName };
+          pendingTestedAdd = { serviceKey: currentTestEndpoint.serviceKey, actionName: currentTestEndpoint.actionName, file: currentTestEndpoint.file || null };
           const modal = document.getElementById('testedConfirmModal');
           if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden', 'false'); }
         }
       } catch (e) {
+        statusEl.textContent = 'Error';
+        statusEl.className = 'postman-response-status error';
         document.getElementById('testResponse').textContent = 'Request failed: ' + (e.message || e);
-        document.getElementById('testResponse').className = 'log-box test-response error';
+        document.getElementById('testResponse').className = 'log-box test-response postman-response-body error';
       } finally {
         setButtonLoading(sendBtn, false);
       }
@@ -2416,6 +2742,10 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       if (!pendingTestedAdd) { closeTestedConfirmModal(); return; }
       try {
         await fetch('/api/tested', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: testedPath(), serviceKey: pendingTestedAdd.serviceKey, actionName: pendingTestedAdd.actionName }) });
+        if (pendingTestedAdd.file) {
+          await fetch('/api/actions/working', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: actionsListDir(), file: pendingTestedAdd.file, working: true }) });
+          loadActions();
+        }
         const testedPanel = document.getElementById('testSubtabTested');
         if (testedPanel && !testedPanel.classList.contains('hidden')) loadTestedList();
       } catch (_) { /* ignore */ }

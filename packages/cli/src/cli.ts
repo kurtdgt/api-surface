@@ -10,6 +10,11 @@ import { handleDashboard } from "./commands/dashboard";
 import { DiffOptions, handleDiff } from "./commands/diff";
 import { handleOpen, OpenOptions } from "./commands/open";
 import { handleScan, ScanOptions } from "./commands/scan";
+import {
+  handleActionsStatus,
+  handleMarkUploaded,
+  handleMarkWorking,
+} from "./commands/mark-uploaded";
 import { handleUploadActions } from "./commands/upload-actions";
 import { handleValidateFunctions } from "./commands/validate-functions";
 
@@ -40,6 +45,14 @@ program
   .option(
     "--api-routes-dir <path>",
     "Directory to scan for API route handlers, relative to scanned root (e.g. src/app/api). Overrides config."
+  )
+  .option(
+    "--generate-actions",
+    "After writing function code, generate action JSON from each endpoint (inner routes included). Requires ANTHROPIC_API_KEY or OPENAI_API_KEY."
+  )
+  .option(
+    "--actions-output-dir <path>",
+    "Directory for action JSON when using --generate-actions (default: actions)"
   )
   .action(async (directory: string, options: ScanOptions) => {
     await handleScan(directory, options);
@@ -137,10 +150,14 @@ program
     "--service-key <key>",
     "Override serviceKey in each action JSON before uploading"
   )
+  .option(
+    "--no-mark",
+    "Do not mark actions as uploaded in the JSON files after successful upload"
+  )
   .action(
     async (
       inputDir: string,
-      options: { url?: string; files?: string; serviceKey?: string }
+      options: { url?: string; files?: string; serviceKey?: string; mark?: boolean }
     ) => {
       const files = options.files
         ? options.files
@@ -153,6 +170,7 @@ program
         url: options.url,
         files: files?.length ? files : undefined,
         serviceKeyOverride: options.serviceKey,
+        markUploaded: options.mark !== false,
       });
     }
   );
@@ -217,6 +235,91 @@ program
       });
     }
   );
+
+// Mark actions as uploaded (tracking only)
+program
+  .command("mark-uploaded")
+  .description(
+    "Mark action JSON files as uploaded or not (for tracking). Updates uploaded/uploadedAt in each file."
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing action JSON files (e.g. actions/storm-track)"
+  )
+  .option(
+    "--unmark",
+    "Remove uploaded flag (mark as not uploaded)"
+  )
+  .option(
+    "--files <list>",
+    "Comma-separated filenames to update (default: all .json in directory)"
+  )
+  .action(
+    async (
+      inputDir: string,
+      options: { unmark?: boolean; files?: string }
+    ) => {
+      const files = options.files
+        ? options.files
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+      await handleMarkUploaded({
+        inputDir,
+        unmark: Boolean(options.unmark),
+        files: files?.length ? files : undefined,
+      });
+    }
+  );
+
+// Mark actions as working (tested/verified)
+program
+  .command("mark-working")
+  .description(
+    "Mark action JSON files as working or not (tested/verified). Updates working/workingAt in each file."
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing action JSON files (e.g. actions/storm-track)"
+  )
+  .option("--unmark", "Remove working flag (mark as not working)")
+  .option(
+    "--files <list>",
+    "Comma-separated filenames to update (default: all .json in directory)"
+  )
+  .action(
+    async (
+      inputDir: string,
+      options: { unmark?: boolean; files?: string }
+    ) => {
+      const files = options.files
+        ? options.files
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined;
+      await handleMarkWorking({
+        inputDir,
+        unmark: Boolean(options.unmark),
+        files: files?.length ? files : undefined,
+      });
+    }
+  );
+
+// Show uploaded and working status of actions
+program
+  .command("actions-status")
+  .description(
+    "List action JSON files with uploaded and working status (see what still needs upload/test)"
+  )
+  .argument(
+    "<input-dir>",
+    "Directory containing action JSON files (e.g. actions/storm-track)"
+  )
+  .action(async (inputDir: string) => {
+    await handleActionsStatus({ inputDir });
+  });
 
 // Parse arguments
 program.parse();

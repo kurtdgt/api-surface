@@ -18,6 +18,8 @@ export interface UploadActionsOptions {
   files?: string[];
   /** If set, override serviceKey in each action JSON before uploading */
   serviceKeyOverride?: string;
+  /** If true (default), mark each successfully uploaded action with uploaded: true and uploadedAt in the JSON file */
+  markUploaded?: boolean;
 }
 
 export async function handleUploadActions(
@@ -110,6 +112,22 @@ export async function handleUploadActions(
 
       ok++;
       console.log(`  ✓ ${name}`);
+
+      if (options.markUploaded !== false) {
+        try {
+          const currentRaw = await fs.readFile(filePath, "utf-8");
+          const obj = JSON.parse(currentRaw) as Record<string, unknown>;
+          obj.uploaded = true;
+          obj.uploadedAt = new Date().toISOString();
+          await fs.writeFile(
+            filePath,
+            JSON.stringify(obj, null, 2),
+            "utf-8"
+          );
+        } catch (e) {
+          console.warn(`  ⚠ ${name}: could not update uploaded flag in file`);
+        }
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error(`  ✗ ${name}: ${msg}`);

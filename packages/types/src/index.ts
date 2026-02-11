@@ -62,6 +62,8 @@ export interface ScanConfig {
   maxFunctionLines?: number;
   /** Directory where API route handlers live (e.g. Next.js App Router "src/app/api"). When set, functionCode is taken from the route handler for the called URL, not the caller. */
   apiRoutesDir?: string;
+  /** Additional absolute file paths to include in the scan (e.g. from AI dependency discovery). Merged with normal scan results. */
+  additionalIncludeFiles?: string[];
 }
 
 export interface ApiClientConfig {

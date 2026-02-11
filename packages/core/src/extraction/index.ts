@@ -8,3 +8,10 @@ export {
   DEFAULT_MAX_FUNCTION_LINES,
   type FunctionExtractionResult,
 } from "./function-extractor";
+export {
+  discoverAllRouteHandlers,
+  discoveredHandlersToApiCalls,
+  findAllRouteFiles,
+  routeFileToApiPath,
+  type DiscoveredRouteHandler,
+} from "./route-discoverer";

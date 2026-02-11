@@ -16,6 +16,11 @@ import {
 import * as fs from "fs/promises";
 import * as path from "path";
 import { describeSystemParamsWithAi } from "./describe-system-params";
+import {
+  discoverApiDependenciesWithAi,
+  resolveDiscoveredPath,
+} from "./discover-api-dependencies";
+import { handleActions } from "./actions";
 
 export interface ScanOptions {
   root?: string;
@@ -26,6 +31,10 @@ export interface ScanOptions {
   functionCodeDir?: string;
   /** Directory to scan for API route handlers, relative to root (e.g. src/app/api). Overrides config. */
   apiRoutesDir?: string;
+  /** After writing function code, generate action JSON files (requires ANTHROPIC_API_KEY or OPENAI_API_KEY). */
+  generateActions?: boolean;
+  /** Directory to write action JSON files when --generate-actions is set (default: actions). */
+  actionsOutputDir?: string;
 }
 
 export async function handleScan(
@@ -72,6 +81,43 @@ export async function handleScan(
     }
 
     console.log(`Using config from: ${options.config || "defaults"}`);
+
+    // When API routes dir is set, optionally use AI to discover more dependencies so we don't miss any
+    if (config.apiRoutesDir?.trim()) {
+      loadEnv();
+      const anthropicKey = process.env.ANTHROPIC_API_KEY;
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (anthropicKey?.trim() || openaiKey?.trim()) {
+        try {
+          const discovered = await discoverApiDependenciesWithAi(
+            rootDir,
+            config.apiRoutesDir.trim(),
+            { anthropicKey, openaiKey }
+          );
+          if (discovered.filePaths.length > 0) {
+            const resolved: string[] = [];
+            for (const rel of discovered.filePaths) {
+              const abs = resolveDiscoveredPath(rel, rootDir);
+              if (abs) resolved.push(abs);
+            }
+            if (resolved.length > 0) {
+              config.additionalIncludeFiles = [
+                ...(config.additionalIncludeFiles ?? []),
+                ...resolved,
+              ];
+              console.log(
+                `AI dependency discovery: ${discovered.filePaths.length} paths → ${resolved.length} resolved file(s) added to scan`
+              );
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "AI dependency discovery failed:",
+            e instanceof Error ? e.message : String(e)
+          );
+        }
+      }
+    }
 
     // Perform scan
     console.log(`Scanning ${rootDir}...`);
@@ -146,6 +192,19 @@ export async function handleScan(
         rootDir: config.rootDir,
       });
       console.log(`\n✓ Function code per endpoint saved to ${functionCodeDir}`);
+
+      // Optionally generate action JSON directly from the scan (includes inner routes)
+      if (options.generateActions) {
+        const actionsDir = path.resolve(
+          process.cwd(),
+          options.actionsOutputDir?.trim() || "actions",
+        );
+        await handleActions({
+          inputDir: functionCodeDir,
+          outputDir: actionsDir,
+        });
+        console.log(`\n✓ Action JSON saved to ${actionsDir}`);
+      }
     }
   } catch (error) {
     console.error(
