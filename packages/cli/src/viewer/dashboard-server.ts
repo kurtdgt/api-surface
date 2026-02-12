@@ -3,14 +3,14 @@
  */
 
 import { spawn, type ChildProcess } from "child_process";
+import { config as loadEnv } from "dotenv";
 import * as fs from "fs/promises";
 import * as http from "http";
 import open from "open";
 import * as path from "path";
 import * as url from "url";
-import { config as loadEnv } from "dotenv";
-import { suggestTestPayload } from "../commands/suggest-test-payload";
 import { generatePrismaSqlFromSchema } from "../commands/generate-prisma-sql";
+import { suggestTestPayload } from "../commands/suggest-test-payload";
 
 const EXECUTE_BASE_URL =
   "https://refreshing-amazement-production.up.railway.app/api/v2/execute";
@@ -191,7 +191,12 @@ export async function startDashboardServer(
             .sort();
           const fileMeta: Record<
             string,
-            { uploaded: boolean; uploadedAt?: string; working: boolean; workingAt?: string }
+            {
+              uploaded: boolean;
+              uploadedAt?: string;
+              working: boolean;
+              workingAt?: string;
+            }
           > = {};
           for (const file of files) {
             try {
@@ -384,7 +389,7 @@ export async function startDashboardServer(
               await fs.writeFile(
                 remarksPath,
                 JSON.stringify(remarks, null, 2),
-                "utf-8"
+                "utf-8",
               );
             }
           } catch {
@@ -472,7 +477,7 @@ export async function startDashboardServer(
           res.end(
             JSON.stringify({
               error: err instanceof Error ? err.message : String(err),
-            })
+            }),
           );
         }
         return;
@@ -491,7 +496,8 @@ export async function startDashboardServer(
             resolved?: boolean;
           };
           const dir = resolvePath(cwd, (params.dir || "actions/").trim());
-          const file = typeof params.file === "string" ? params.file.trim() : "";
+          const file =
+            typeof params.file === "string" ? params.file.trim() : "";
           if (!file || file.includes("..") || !file.endsWith(".json")) {
             res.writeHead(400, { "Content-Type": "application/json" });
             res.end(JSON.stringify({ error: "Invalid file" }));
@@ -518,11 +524,11 @@ export async function startDashboardServer(
             typeof current === "object" && current && "resolved" in current
               ? Boolean((current as { resolved?: boolean }).resolved)
               : false;
-          function toEntry(
-            v: RemarkEntry
-          ): { remark: string; resolved: boolean } {
-            if (typeof v === "string")
-              return { remark: v, resolved: false };
+          function toEntry(v: RemarkEntry): {
+            remark: string;
+            resolved: boolean;
+          } {
+            if (typeof v === "string") return { remark: v, resolved: false };
             const o = v as { remark?: string; resolved?: boolean };
             return {
               remark: typeof o.remark === "string" ? o.remark : "",
@@ -532,8 +538,10 @@ export async function startDashboardServer(
           if (params.remark !== undefined) {
             if (params.remark === "") {
               await fs.mkdir(dir, { recursive: true });
-              const next: Record<string, { remark: string; resolved: boolean }> =
-                {};
+              const next: Record<
+                string,
+                { remark: string; resolved: boolean }
+              > = {};
               for (const [k, v] of Object.entries(rawRemarks)) {
                 if (k === file) continue;
                 next[k] = toEntry(v);
@@ -541,7 +549,7 @@ export async function startDashboardServer(
               await fs.writeFile(
                 remarksPath,
                 JSON.stringify(next, null, 2),
-                "utf-8"
+                "utf-8",
               );
               res.writeHead(200, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ ok: true, remarks: next }));
@@ -550,7 +558,8 @@ export async function startDashboardServer(
             remark = params.remark;
           }
           if (params.resolved !== undefined) resolved = params.resolved;
-          const next: Record<string, { remark: string; resolved: boolean }> = {};
+          const next: Record<string, { remark: string; resolved: boolean }> =
+            {};
           for (const [k, v] of Object.entries(rawRemarks)) {
             if (k === file) continue;
             next[k] = toEntry(v);
@@ -560,7 +569,7 @@ export async function startDashboardServer(
           await fs.writeFile(
             remarksPath,
             JSON.stringify(next, null, 2),
-            "utf-8"
+            "utf-8",
           );
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ ok: true, remarks: next }));
@@ -569,7 +578,7 @@ export async function startDashboardServer(
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -607,11 +616,7 @@ export async function startDashboardServer(
           } else {
             delete obj.uploadedAt;
           }
-          await fs.writeFile(
-            filePath,
-            JSON.stringify(obj, null, 2),
-            "utf-8"
-          );
+          await fs.writeFile(filePath, JSON.stringify(obj, null, 2), "utf-8");
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
@@ -619,14 +624,14 @@ export async function startDashboardServer(
               file,
               uploaded,
               uploadedAt: obj.uploadedAt ?? undefined,
-            })
+            }),
           );
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -664,11 +669,7 @@ export async function startDashboardServer(
           } else {
             delete obj.workingAt;
           }
-          await fs.writeFile(
-            filePath,
-            JSON.stringify(obj, null, 2),
-            "utf-8"
-          );
+          await fs.writeFile(filePath, JSON.stringify(obj, null, 2), "utf-8");
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
@@ -676,14 +677,14 @@ export async function startDashboardServer(
               file,
               working,
               workingAt: obj.workingAt ?? undefined,
-            })
+            }),
           );
         } catch (e) {
           res.writeHead(500, { "Content-Type": "application/json" });
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -954,7 +955,7 @@ export async function startDashboardServer(
           const schemaPath = path.join(
             resolvePath(cwd, repoPath),
             "prisma",
-            "schema.prisma"
+            "schema.prisma",
           );
           const schemaContent = await fs.readFile(schemaPath, "utf-8");
           loadEnv();
@@ -973,7 +974,7 @@ export async function startDashboardServer(
           res.end(
             JSON.stringify({
               error: e instanceof Error ? e.message : String(e),
-            })
+            }),
           );
         }
         return;
@@ -1396,6 +1397,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .remarks-card { margin: 24px 28px 24px 28px; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .postman-test-panel { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .postman-base-url-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .postman-base-url-label { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+    .postman-base-url-input { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 12px; font-family: ui-monospace, monospace; box-sizing: border-box; }
     .postman-url-row { display: flex; align-items: stretch; gap: 0; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
     .postman-method-wrap { flex-shrink: 0; }
     .postman-method-wrap select { padding: 12px 14px; border: none; background: var(--stat-bg); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; border-right: 1px solid var(--border); min-width: 100px; }
@@ -1405,8 +1409,6 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     .postman-action-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
     .postman-action-select-wrap { min-width: 220px; }
     .postman-action-select-wrap select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 13px; width: 100%; }
-    .postman-base-url-wrap { flex: 1; min-width: 200px; }
-    .postman-base-url-wrap input { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--stat-bg); color: var(--text); font-size: 12px; width: 100%; font-family: ui-monospace, monospace; box-sizing: border-box; }
     .postman-request-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
     .postman-tab { padding: 8px 16px; font-size: 13px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text-muted); cursor: pointer; }
     .postman-tab:hover { color: var(--text); background: var(--hover); }
@@ -1683,6 +1685,10 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
       <div class="panel-config postman-test-panel">
         <div class="panel-config-title">Test endpoint</div>
+        <div class="postman-base-url-row">
+          <label for="testBaseUrl" class="postman-base-url-label">Execute base URL</label>
+          <input type="text" id="testBaseUrl" class="postman-base-url-input" value="https://refreshing-amazement-production.up.railway.app/api/v2/execute" title="Base URL for execute API" placeholder="https://.../api/v2/execute" />
+        </div>
         <div class="postman-url-row">
           <div class="postman-method-wrap">
             <label for="testMethod" class="sr-only">Method</label>
@@ -1699,10 +1705,6 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
             <label for="testActionSelect">Action</label>
             <select id="testActionSelect"><option value="">Choose an action…</option></select>
           </div>
-          <div class="input-group postman-base-url-wrap">
-            <label for="testBaseUrl">Execute base URL</label>
-            <input type="text" id="testBaseUrl" value="https://refreshing-amazement-production.up.railway.app/api/v2/execute" title="Base URL for execute API" />
-          </div>
           <button type="button" class="btn btn-secondary" id="testLoadFromDir">Load endpoints</button>
           <button type="button" class="btn btn-secondary" id="testSuggestAi" title="Suggest params and body from action schema (requires API key)">Suggest with AI</button>
         </div>
@@ -1717,7 +1719,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
           <div id="postmanPanelBody" class="postman-tab-panel">
             <label for="testBody" class="postman-label">Body (JSON)</label>
-            <textarea id="testBody" class="postman-textarea" placeholder="{}" spellcheck="false"></textarea>
+            <textarea id="testBody" class="postman-textarea" placeholder="" spellcheck="false"></textarea>
           </div>
         </div>
         <div class="postman-response">
@@ -1862,7 +1864,8 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       const endpoints = getTestEndpoints();
       lastTestEndpoints = endpoints;
       if (selectEl) {
-        selectEl.innerHTML = '<option value="">Choose an action…</option>' + endpoints.map((ep, i) => '<option value="' + i + '">' + escapeHtml(ep.serviceKey) + ' / ' + escapeHtml(ep.actionName) + (ep.displayName ? ' — ' + escapeHtml(ep.displayName) : '') + '</option>').join('');
+        const uploadedOptions = endpoints.map((ep, i) => ep.uploaded ? '<option value="' + i + '">' + escapeHtml(ep.serviceKey) + ' / ' + escapeHtml(ep.actionName) + (ep.displayName ? ' — ' + escapeHtml(ep.displayName) : '') + '</option>' : '').filter(Boolean).join('');
+        selectEl.innerHTML = '<option value="">Choose an action…</option>' + (uploadedOptions || '<option value="" disabled>No uploaded actions — mark actions as uploaded above</option>');
       }
       if (!endpoints.length) {
         list.innerHTML = '<li style="padding:16px;color:var(--text-muted);">No endpoints. Click "Load endpoints" above to populate.</li>';
@@ -1880,7 +1883,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
           currentTestEndpoint = { serviceKey: ep.serviceKey, actionName: ep.actionName, file: ep.file || null, displayName: ep.displayName || null };
           document.getElementById('testUrl').value = testBaseUrl() + '/' + ep.serviceKey + '/' + ep.actionName;
           document.getElementById('testQueryParams').value = '{}';
-          document.getElementById('testBody').value = '{}';
+          document.getElementById('testBody').value = '';
           document.getElementById('testResponse').textContent = '—';
           document.getElementById('testResponseStatus').textContent = '';
           try {
@@ -2338,7 +2341,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
               const existing = getTestEndpoints();
               const byKey = {};
               existing.forEach(ep => { byKey[ep.serviceKey + '::' + ep.actionName] = ep; });
-              uploaded.forEach(ep => { byKey[ep.serviceKey + '::' + ep.actionName] = { serviceKey: ep.serviceKey, actionName: ep.actionName, displayName: ep.displayName, file: ep.file }; });
+              uploaded.forEach(ep => { byKey[ep.serviceKey + '::' + ep.actionName] = { serviceKey: ep.serviceKey, actionName: ep.actionName, displayName: ep.displayName, file: ep.file, uploaded: ep.uploaded }; });
               saveTestEndpoints(Object.values(byKey));
               renderTestEndpoints();
             } catch (err) { /* ignore */ }
@@ -2632,7 +2635,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
       currentTestEndpoint = { serviceKey: ep.serviceKey, actionName: ep.actionName, file: ep.file || null, displayName: ep.displayName || null };
       document.getElementById('testUrl').value = testBaseUrl() + '/' + ep.serviceKey + '/' + ep.actionName;
       document.getElementById('testQueryParams').value = '{}';
-      document.getElementById('testBody').value = '{}';
+      document.getElementById('testBody').value = '';
       document.getElementById('testResponse').textContent = '—';
       document.getElementById('testResponseStatus').textContent = '';
       try {
@@ -2646,7 +2649,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
     document.getElementById('testLoadFromDir').addEventListener('click', async () => {
       try {
         const data = await api('/api/actions/endpoints?dir=' + encodeURIComponent(actionsListDir()));
-        const endpoints = (data.endpoints || []).map(ep => ({ serviceKey: ep.serviceKey, actionName: ep.actionName, displayName: ep.displayName, file: ep.file }));
+        const endpoints = (data.endpoints || []).map(ep => ({ serviceKey: ep.serviceKey, actionName: ep.actionName, displayName: ep.displayName, file: ep.file, uploaded: ep.uploaded }));
         saveTestEndpoints(endpoints);
         renderTestEndpoints();
       } catch (e) {
@@ -2678,7 +2681,9 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
         const res = await fetch('/api/test/suggest-payload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actionJson }) });
         if (!res.ok) throw new Error(await res.text());
         const result = await res.json();
-        document.getElementById('testBody').value = JSON.stringify(result.payload || {}, null, 2);
+        const payload = result.payload || {};
+        const hasPayload = typeof payload === 'object' && payload !== null && Object.keys(payload).length > 0;
+        document.getElementById('testBody').value = hasPayload ? JSON.stringify(payload, null, 2) : '';
         document.getElementById('testQueryParams').value = JSON.stringify(result.queryParams || {}, null, 2);
       } catch (e) {
         document.getElementById('testResponse').textContent = 'Suggest failed: ' + (e.message || e);
